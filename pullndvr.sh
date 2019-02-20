@@ -17,7 +17,8 @@ if [ ! -z "$1" ]
     sandbox=${1^^}
 fi
 
-endevor list elements \* -i CMEWXY01 --env DEV --sys ESCM180 --type \* --sub $sandbox --sm --rft list --rff fullElmName typeName sbsName | ./pullndvr.py
+endevor list elements \* -i CMEWXY01 --env DEV --sys ESCM180 --type \* --sub $sandbox --sm --rft list --rff fullElmName typeName sbsName > list.json
+cat list.json | ./pullndvr.py
 
 
 # element="${filename%.*}"

@@ -28,8 +28,8 @@ for elm in listElm:
     #print(elm)
     jdata=json.loads(elm)
     filename = jdata["fullElmName"] + "." + jdata["typeName"]  # extToType[jdata["typeName"]] exception if not exists in list
-    command = "bash -c 'endevor view element \"" + jdata["fullElmName"] + "\" -i CMEWXY01 --env DEV --sn 1" + \
-    " --sys ESCM180 --sub " + jdata["sbsName"] + " --type " + jdata["typeName"] + " --tf \"" + filename + "\"'"
+    command = "bash -c 'endevor view element \"" + jdata["fullElmName"] + "\" -i CMEWXY01 --env " + jdata["envName"] + " --sn " + jdata["stgNum"] + \
+    " --sys " + jdata["sysName"] + " --sub " + jdata["sbsName"] + " --type " + jdata["typeName"] + " --tf \"" + filename + "\"'"
     commands.append(command)
 
 #print(commands)
@@ -43,7 +43,7 @@ for elm in listElm:
 # ]
 
 # make the Pool of workers
-pool = ThreadPool(8)
+pool = ThreadPool(16)
 
 # open the urls in their own threads
 # and return the results
@@ -55,7 +55,8 @@ pool.join()
 
 endT = time.time()
 
-print("Elapsed time: " + endT - startT + "s")
+print("Elapsed time: ")
+print(endT - startT)
 
 #print(os.environ["sandbox"])
 
