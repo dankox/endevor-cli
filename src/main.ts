@@ -6,6 +6,8 @@ import { EdoFetch } from './EdoFetch';
 import { EdoCheckout } from './EdoCheckout';
 import { EdoPull } from './EdoPull';
 import { EdoStatus } from './EdoStatus';
+import { EdoRestore } from './EdoRestore';
+import { EdoCommit } from './EdoCommit';
 
 yargs.usage('Usage: $0 <command> [options]')
 	.scriptName('edo')
@@ -13,5 +15,10 @@ yargs.usage('Usage: $0 <command> [options]')
 		EdoInit.edoInitOptions, EdoInit.init)
 	.command('checkout <stage>', 'Checkout stage from local repo', EdoCheckout.edoCheckoutOptions, EdoCheckout.checkout)
 	.command('fetch [options]', 'Fetch list of elements for local stage', EdoFetch.ndvFetchOptions, EdoFetch.fetch)
+	.command('pull [file]', 'Get elements from the list to local stage', EdoPull.edoPullOptions, EdoPull.pull)
+	.command('status', 'Show the working tree status', {}, EdoStatus.status)
+	.command('commit [file]', 'Commit working directory to local stage', EdoCommit.edoCommitOptions, EdoCommit.commit)
+	.command('restore [file]', 'Restore files in working directory', EdoRestore.edoRestoreOptions, EdoRestore.restore)
+	// .command('diff [file]', 'Diff working directory against local stage, or remote, etc.', EdoRestore.edoRestoreOptions, EdoRestore.restore)
 	// .showHelpOnFail(false)
 	.help().demandCommand().argv;

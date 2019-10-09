@@ -17,25 +17,25 @@ export class EdoInit {
 
 	private static readonly edoInitUrlOptions : yargs.PositionalOptions = {
 		describe: 'Full remote URL of Endevor repo (e.g. http://localhost:8080/EndevorService/rest/CONFIG)'
-	}
+	};
 
 	private static readonly edoInitUserOptions : yargs.Options = {
 		describe: 'Username',
 		demand: true,
 		alias: 'u'
-	}
+	};
 
 	private static readonly edoInitPassOptions : yargs.Options = {
 		describe: 'Password',
 		demand: true,
 		alias: 'p'
-	}
+	};
 
 	public static edoInitOptions = {
 		url: EdoInit.edoInitUrlOptions,
 		user: EdoInit.edoInitUserOptions,
 		pass: EdoInit.edoInitPassOptions
-	}
+	};
 
 	/**
 	 *
@@ -68,7 +68,7 @@ export class EdoInit {
 		headers = {
 			"Accept": "application/json",
 			...headers
-		}
+		};
 
 		// verify instance (if exists)
 		console.log(`verifying url (${repoURL})...`);
@@ -93,7 +93,7 @@ export class EdoInit {
 			repoURL: repoURL,
 			cred64: cred64,
 			instance: argv.instance
-		}
+		};
 		await fu.writeSettings(settings);
 
 		await Promise.all([
@@ -126,7 +126,7 @@ async function getRepoMap(stageURL: string, headers: any) {
 }
 
 async function getSysMap(sysURL: string, headers: any) {
-	console.log("getting systems...")
+	console.log("getting systems...");
 	const response = await EndevorRestApi.getHttp(sysURL, headers);
 	let resBody = JSON.parse(response.body);
 	if (response.status != 200) {
@@ -138,7 +138,7 @@ async function getSysMap(sysURL: string, headers: any) {
 }
 
 async function getSubMap(subURL:string, headers: any) {
-	console.log("getting subsystems...")
+	console.log("getting subsystems...");
 	const response = await EndevorRestApi.getHttp(subURL, headers);
 	let resBody = JSON.parse(response.body);
 	if (response.status != 200) {

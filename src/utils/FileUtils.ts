@@ -45,14 +45,16 @@ function massageError(error: Error & { code?: string }): Error {
  * File utilities
  */
 export class FileUtils {
-	static readonly edoDir: string = ".endevor"
-	static readonly mapDir: string = "map"
-	static readonly configFile: string = "config"
-	static readonly stageMapFile: string = "stagemap"
-	static readonly sysMapFile: string = "sysmap"
-	static readonly subMapFile: string = "submap"
-	static readonly elementsFile: string = "elements"
-	static readonly stageFile: string = "STAGE"
+	static readonly edoDir: string = ".endevor";
+	static readonly mapDir: string = "map";
+	static readonly configFile: string = "config";
+	static readonly stageMapFile: string = "stagemap";
+	static readonly sysMapFile: string = "sysmap";
+	static readonly subMapFile: string = "submap";
+	static readonly index: string = "index";
+	static readonly eleBaseIdx: string = "local_base";
+	static readonly remote: string = "remote";
+	static readonly stageFile: string = "STAGE";
 
 	public static async isNdvDir(): Promise<boolean> {
 		return this.exists(this.edoDir);
@@ -131,14 +133,16 @@ export class FileUtils {
 	}
 
 	public static async writeEleList(filePath: string, eleList: any): Promise<void> {
+		// TODO: add check on already presented elements, if fingerprint was changed
+		// and according to that either delete remote-sha1 or keep it
 		let output: string = "";
 		if (!await this.exists(".ele")) {
 			await this.mkdir(".ele"); // create directory (just in case)
 		}
 		if (!isNullOrUndefined(eleList)) {
-			// eleList.forEach((ele: { fullElmName: any; typeName: any; elmVVLL: any; baseVVLL: any; fileExt: any; fingerprint: any}) => {
 			eleList.forEach((ele: IEleList) => {
-				output += `${ele.typeName},${ele.fileExt},${ele.fingerprint},sha1,${ele.fullElmName}\n`; // add sha1 when pull
+				// output += `${ele.typeName},${ele.fileExt},${ele.fingerprint},sha1,${ele.fullElmName}\n`; // add sha1 when pull
+				output += `lsha1,rsha1,${ele.fingerprint},${ele.fileExt},${ele.typeName}-${ele.fullElmName}\n`; // add sha1 when pull
 				this.touchfile(`.ele/${ele.fullElmName}.${ele.typeName}`);
 				// this.touchfile(`.typ/${ele.typeName}.${ele.fullElmName}`);
 			});
@@ -163,19 +167,37 @@ export class FileUtils {
 		});
 	}
 
-	public static async getEleListFromStage(stage: string) {
+	/**
+	 * Get list of elements from either element file or base element file in stage directory
+	 * @param stage
+	 * @param base
+	 */
+	public static async getEleListFromStage(stage: string, base?: boolean): Promise<{ [key: string]: string }> {
 		const self = this;
-		return new Promise<any>((resolve, reject) => {
+		let eleFile = this.index;
+		let keyIdx = 4;
+		if (!isNullOrUndefined(base) && base) {
+			eleFile = this.eleBaseIdx;
+			keyIdx = 2;
+		}
+		return new Promise<{ [key: string]: string }>((resolve, reject) => {
 			try {
-				const fileStream: fs.ReadStream = fs.createReadStream(this.edoDir + "/" + this.mapDir + "/" + stage + "/" + this.elementsFile);
+				const fileStream: fs.ReadStream = fs.createReadStream(this.edoDir + "/" + this.mapDir + "/" + stage + "/" + eleFile);
+				fileStream.on('error', err => {
+					reject(err);
+				});
 				const rl = readline.createInterface({
 					input: fileStream,
 					crlfDelay: Infinity
 				});
 				let data: { [key: string]: string } = {};
 				rl.on('line', (line) => {
-					const keyVal = self.splitX(line, ',', 4);
-					data[`${keyVal[0]}-${keyVal[4]}`] = keyVal.join(',');
+					// lsha1,rsha1,fingerprint,fileExt,typeName-fullElmName
+					// sha1,fingerprint,typeName-fullElmName
+					const keyVal = self.splitX(line, ',', keyIdx);
+					data[keyVal[keyIdx]] = keyVal.join(',');
+				}).on('error', (err) => {
+					reject(err);
 				}).on('close', () => {
 					resolve(data);
 				});
@@ -246,9 +268,32 @@ export class FileUtils {
 		});
 	}
 
+	public static unlink(path: string): Promise<boolean> {
+		return new Promise<boolean>((resolve, reject) => {
+			fs.unlink(path, error => handleResult(resolve, reject, error, void 0));
+		});
+	}
+
+	public static rmdir(path: string): Promise<boolean> {
+		return new Promise<boolean>((resolve, reject) => {
+			fs.rmdir(path, error => handleResult(resolve, reject, error, void 0));
+		});
+	}
+
 	public static rmrf(path: string): Promise<void> {
 		return new Promise<void>((resolve, reject) => {
 			rimraf(path, error => handleResult(resolve, reject, error, void 0));
+		});
+	}
+
+	public static async copyFile(src: string, dest: string): Promise<void> {
+		let dirName = path.dirname(dest);
+		if (!await this.exists(dirName)) {
+			await this.mkdir(dirName);
+		}
+
+		return new Promise<void>((resolve, reject) => {
+			fs.copyFile(src, dest, error => handleResult(resolve, reject, error, void 0));
 		});
 	}
 

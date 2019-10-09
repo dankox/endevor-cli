@@ -16,11 +16,11 @@ export class EdoFetch {
 		demand: false,
 		boolean: true,
 		alias: 'a'
-	}
+	};
 
 	public static ndvFetchOptions = {
 		all: EdoFetch.ndvFetchAllOption
-	}
+	};
 
 
 	/**
@@ -38,7 +38,7 @@ export class EdoFetch {
 		let listHead = {
 			"Accept": "application/json",
 			...authHead
-		}
+		};
 
 		let stageArr: string[] = [];
 		stageArr.push(stageDir);
@@ -48,7 +48,7 @@ export class EdoFetch {
 			stageDir = subMap[stageDir].split(',')[0];
 			while (!stageDir.startsWith("0-0")) {
 				stageArr.push(stageDir);
-				stageDir = subMap[stageDir].split(',')[0]
+				stageDir = subMap[stageDir].split(',')[0];
 			}
 			await fu.rmrf(".ele");
 		}
@@ -59,18 +59,18 @@ export class EdoFetch {
 			console.log(`getting list for ${stageItem}...`);
 			let eles = await getElementList(setting.repoURL + listEle, listHead);
 			console.log(`writing list for ${stageItem}...`);
-			return fu.writeEleList(`${fu.edoDir}/${fu.mapDir}/${stageItem}/${fu.elementsFile}`, eles);
+			return fu.writeEleList(`${fu.edoDir}/${fu.mapDir}/${stageItem}/${fu.index}`, eles);
 		};
 		await Promise.all(stageArr.map(item => asyncGetElements(item)));
 
-		console.log("fetch finished!");
+		console.log("fetch done!");
 	}
 }
 
 async function getElementList(eleURL:string, headers: any) {
 	try {
 		const response: IRestResponse = await EndevorRestApi.getHttp(eleURL, headers);
-		console.log("list obtained...")
+		console.log("list obtained...");
 		let resBody;
 		try {
 			resBody = JSON.parse(response.body);

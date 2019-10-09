@@ -12,7 +12,7 @@ export class EndevorRestApi {
 	public static getAuthHeader(cred64: string): any {
 		const headers = {
 			"Authorization": "Basic " + cred64
-		}
+		};
 		return headers;
 	}
 
@@ -33,7 +33,7 @@ export class EndevorRestApi {
 							headers: response.headers,
 							size: body.length,
 							body: body
-						}
+						};
 						resolve(responseJson);
 					}
 				});
@@ -57,7 +57,7 @@ export class EndevorRestApi {
 				headers = {
 					"accept-encoding": 'gzip,deflate',
 					...headers
-				}
+				};
 			}
 			const opts = {
 				method: "GET",
@@ -66,7 +66,7 @@ export class EndevorRestApi {
 				path: tUrl.path,
 				rejectUnauthorized: false,
 				headers: headers
-			}
+			};
 			if (tUrl.protocol === "https:") {
 				client = https;
 				// opts.rejectUnauthorized = false;
@@ -96,7 +96,7 @@ export class EndevorRestApi {
 						headers: response.headers,
 						size: size,
 						body: null
-					}
+					};
 					if (response.headers['content-type'] == 'application/json') {
 						responseJson.body = data.join('').toString();
 					} else if (response.headers['content-type'] == 'application/octet-stream') {
