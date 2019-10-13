@@ -22,7 +22,6 @@ export class EdoCommit {
 	 * @param argv
 	 */
 	public static async commit(argv: any) {
-		// TODO: restore local to remote (currently only workdir to commited/pulled)
 		let stage = await fu.getStage();
 
 		let eleList: { [key: string]: string } = {};

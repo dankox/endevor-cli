@@ -14,6 +14,7 @@ import { IMerge3way } from './doc/IMerge3way';
 export class EdoPull {
 	private static readonly edoPullFile : yargs.PositionalOptions = {
 		describe: 'Name of file (element.type) to pull from remote Endevor',
+		type: "string"
 	};
 
 	public static edoPullOptions = {
@@ -34,20 +35,45 @@ export class EdoPull {
 		};
 
 
-		let file = argv.file;
+		let file: string = argv.file;
+		let search: boolean = false;
 
-		let file_list: {[key: string]: string } = {};
+		let file_list: {[key: string]: string } = {}; // list for download
+		let index_list: {[key: string]: string } = {}; // list from index file
+		let orig_base_list: {[key: string]: string } = {}; // list created when pulled to store original rsha1 (for base)
+		try {
+			index_list = await fu.getEleListFromStage(stage);
+		} catch (err) {
+			console.error("no index file!"); // don't stop
+		}
 		if (isNullOrUndefined(file)) {
-			file_list = await fu.getEleListFromStage(stage);
+			file_list = index_list;
 		} else {
-			file_list["type-element"] = file; // 'type,null,null,sha1,element'
+			if (await fu.exists(file)) {
+				// get the final full file name in proper format
+				if (file.startsWith(".ele/")) {
+					let fn: string[] = file.split('/');
+					file = fn[1].split('.').reverse().join('-');
+				} else if (file.startsWith(".ele\\")) {
+					let fn = file.split('\\');
+					file = fn[1].split('.').reverse().join('-');
+				} else {
+					let fn = (file.indexOf('/') > 0 ? file.split('/') : file.split('\\'));
+					file = `${fn[0]}-${fn[1]}`;
+				}
+				file_list[file] = `lsha1,rsha1,null,null,${file}`; // lsha1,rsha1,fingerprint,fileExt,typeName-fullElmName
+				search = true;
+			} else {
+				console.error(`Don't know this file '${file}'!`);
+				process.exit(1);
+			}
 		}
 
 		let elements = Object.keys(file_list);
 		let pulledKeys: any[] = [];
 
 		const asyncGetElement = async (element: string) => {
-			const key = await getElement(setting.repoURL, stage, element, pullHead);
+			const key = await getElement(setting.repoURL, stage, element, pullHead, search);
 			if (!isNullOrUndefined(key))
 				pulledKeys.push(key);
 		};
@@ -55,53 +81,61 @@ export class EdoPull {
 		await Promise.all(elements.map(item => asyncGetElement(item)));
 		console.log(" "); // new line to console log
 
+		// update index
 		pulledKeys.forEach(key => {
 			const keyParts = fu.splitX(key, ',', 2); // sha1,fingerprint,type-element
-			let tmp = fu.splitX(file_list[keyParts[2]], ',', 4); // lsha1,rsha1,fingerprint,fileExt,typeName-fullElmName (new version)
-			// type,fileext,fingerprint,sha1,element (old version)
+			const listLine = isNullOrUndefined(index_list[keyParts[2]]) ? file_list[keyParts[2]] : index_list[keyParts[2]];
+			let tmp = fu.splitX(listLine, ',', 4); // lsha1,rsha1,fingerprint,fileExt,typeName-fullElmName (new version)
+			if (tmp[1] != 'rsha1')
+				orig_base_list[keyParts[2]] = tmp[1]; // save original rsha1 for later merge (as base)
 			tmp[1] = keyParts[0]; // remote-sha1
 			tmp[2] = keyParts[1]; // fingerprint
-			file_list[keyParts[2]] = tmp.join(',');
+			index_list[keyParts[2]] = tmp.join(','); // update index with new rsha1 and fingerprint
 		});
 
-		// update elements list
-		let output: string[] = Object.values(file_list);
+		// update index list
+		let output: string[] = Object.values(index_list);
 		await fu.writefile(`${fu.edoDir}/${fu.mapDir}/${stage}/${fu.index}`, Buffer.from(output.join("\n")));
 		console.log("pull done!");
 
-		// Merging...
+		// Merging... (go thru pulled files only)
 		console.log("updating working directory...");
-		// get base files (if any) for merging if necessary
-		let base_file_list: {[key: string]: string } = {}; // list of files which were base/root of local changes
-		try {
-			base_file_list = await fu.getEleListFromStage(stage, true);
-		} catch (err) {
-			// file probably doesn't exists
-			// console.log("no base file: " + err);
-		}
-
-		// elements.forEach(async element => {
 		for (let element of elements) {
 			let elemParts = fu.splitX(element, '-', 1);
-			let tmpItem = fu.splitX(file_list[element], ',', 4); // lsha1,rsha1,fingerprint,fileExt,typeName-fullElmName (new version)
+			let filename = `./${elemParts[0]}/${elemParts[1]}`;
+			let tmpItem = fu.splitX(index_list[element], ',', 4); // lsha1,rsha1,fingerprint,fileExt,typeName-fullElmName
 			// TODO: deleted?? should be merged somehow with local? conflict??
 			if (tmpItem[1] == 'rsha1')
 				continue; // for not pulled element, skip merge
 
-			if (tmpItem[0] == 'lsha1' || tmpItem[1] == tmpItem[0]) { // if remote-sha1 is the same as local-sha1
+			const workExist: boolean = await fu.exists(filename);
+			if (tmpItem[0] == 'lsha1' && !workExist) { // if no local and doesn't exist in working directory copy it there
 				try {
-					await fu.copyFile(`${fu.edoDir}/${fu.mapDir}/${stage}/${fu.remote}/${tmpItem[1]}`, `./${elemParts[0]}/${elemParts[1]}`);
+					await fu.copyFile(`${fu.edoDir}/${fu.mapDir}/${stage}/${fu.remote}/${tmpItem[1]}`, filename);
 					// save sha1 from remote to local
 					tmpItem[0] = tmpItem[1];
-					file_list[element] = tmpItem.join(',');
+					index_list[element] = tmpItem.join(','); // update index list
 				} catch (err) {
-					console.error(`Error while merging element '${element}': ${err}`);
+					console.error(`Error while pulling element '${element}': ${err}`);
 				}
-			} else { // merge
+			} else { // merge (if it has lsha1 or it already exists in workdir, create merge content)
 				try {
-					const tmpFile = fu.splitX(base_file_list[element], ',', 2);
-					const baseStr = (await fu.readfile(`${fu.edoDir}/${fu.mapDir}/${stage}/${fu.remote}/${tmpFile[0]}`)).toString();
-					const mineStr = (await fu.readfile(`${fu.edoDir}/${fu.mapDir}/${stage}/${fu.remote}/${tmpItem[0]}`)).toString();
+					if (tmpItem[0] == 'lsha1' && workExist) {
+						const lsha1 = await hash.getFileHash(filename);
+						if (lsha1 == tmpItem[1]) continue; // for the same as remote, skip
+					}
+					if (isNullOrUndefined(orig_base_list[element])) {
+						// TODO: do 2 way diff when don't have base (remote from before)
+						// for no base, I should just show conflict, incomming and mine... <<< local === >>> remote
+						// Currently no base, no merge, just overwrite local changes = =
+						await fu.copyFile(`${fu.edoDir}/${fu.mapDir}/${stage}/${fu.remote}/${tmpItem[1]}`, filename);
+						if (workExist) {
+							console.log(`'${filename}' in working directory overwritten... (NOT TRACKED!!! MERGE DOESN'T WORK!!!)`);
+						}
+						continue;
+					}
+					let baseStr = (await fu.readfile(`${fu.edoDir}/${fu.mapDir}/${stage}/${fu.remote}/${orig_base_list[element]}`)).toString();
+					const mineStr = (await fu.readfile(filename)).toString();
 					const theirsStr = (await fu.readfile(`${fu.edoDir}/${fu.mapDir}/${stage}/${fu.remote}/${tmpItem[1]}`)).toString();
 					const mergearg: IMerge3way = {
 						base: baseStr,
@@ -110,30 +144,32 @@ export class EdoPull {
 					};
 					let merged: string[] = EdoMerge.merge3way(mergearg);
 					const isOk = merged.shift();
-					let tmpBuf: Buffer = Buffer.from(merged.join('/n'));
-					let lsha1 = hash.getHash(tmpBuf);
+					// TODO: check the line endings, last line is not merged properly (last empty line)
+					let tmpBuf: Buffer = Buffer.from(merged.join('\n'));
+					// let lsha1 = hash.getHash(tmpBuf);
 					await fu.writefile(`./${elemParts[0]}/${elemParts[1]}`, tmpBuf);
 					if (isOk == 'conflict') {
 						// lsha1 = 'x-' + lsha1; // TODO: ??? what to do how to mark it (maybe x- and use it also in status)
 						console.error(`There is conflict in file ./${elemParts[0]}/${elemParts[1]}`);
 					}
-					tmpItem[0] = lsha1;
-					file_list[element] = tmpItem.join(',');
+					// don't do this, we don't want to overwrite commited local changes
+					// tmpItem[0] = lsha1;
+					// file_list[element] = tmpItem.join(',');
 				} catch (err) {
 					console.error(`Error occurs during merge of '${element}': ${err}`);
 				}
 			}
 		}
 
-		// update elements list
-		output = Object.values(file_list);
+		// update index list
+		output = Object.values(index_list);
 		fu.writefile(`${fu.edoDir}/${fu.mapDir}/${stage}/${fu.index}`, Buffer.from(output.join("\n")));
 		console.log("update done!");
 	}
 
 }
 
-async function getElement(repoURL: string, stage: string, element: string, headers: any) {
+async function getElement(repoURL: string, stage: string, element: string, headers: any, search: boolean = false) {
 	// TODO: do get element only on elements which doesn't have rsha1
 	// - this should happen (rsha1 update) when fetch is done (if fingerprint doesn't match)
 	// - writeEleList needs to be updated too (because currently it always overrides)
@@ -143,6 +179,8 @@ async function getElement(repoURL: string, stage: string, element: string, heade
 		let elemParts = fu.splitX(element, '-', 1);
 		let eleURL = `env/${stageParts[0]}/stgnum/${stageParts[1]}/sys/${stageParts[2]}/subsys/${stageParts[3]}/type/${elemParts[0]}/ele/` + encodeURIComponent(elemParts[1]);
 		eleURL += "?noSignout=yes";
+		if (search)
+			eleURL += "&search=yes";
 		const response: IRestResponse = await EndevorRestApi.getHttp(repoURL + eleURL, headers);
 		process.stdout.write('.');
 

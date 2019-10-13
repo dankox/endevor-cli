@@ -110,6 +110,8 @@ export class EdoCheckout {
 			} catch (err) {
 				// file doesn't exists or read error, skip updating working tree
 				console.log("There is no index for this stage, run 'edo fetch' and 'edo pull'");
+				await fu.writefile(`${fu.edoDir}/${fu.stageFile}`, Buffer.from(stage));
+				console.log("checkout map stage: " + stage); // update stage (so the checkout is done)
 				process.exit(0);
 			}
 
