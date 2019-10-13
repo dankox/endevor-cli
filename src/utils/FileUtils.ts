@@ -4,6 +4,7 @@ import * as readline from 'readline';
 import mkdirp from 'mkdirp';
 import rimraf from 'rimraf';
 import path from 'path';
+import os from 'os';
 import { ISettings } from '../doc/ISettings';
 import { isNull, isNullOrUndefined } from 'util';
 import { IEleList } from '../doc/IEleList';
@@ -333,9 +334,23 @@ export class FileUtils {
 		});
 	}
 
-	public static readfile(path: string): Promise<Buffer> {
+	public static readfile(path: string, trimTrailSpace: boolean = false): Promise<Buffer> {
 		return new Promise<Buffer>((resolve, reject) => {
-			fs.readFile(path, (error, buffer) => handleResult(resolve, reject, error, buffer));
+			if (trimTrailSpace) {
+				fs.readFile(path, (error, buffer) => {
+					if (error) {
+						return handleResult(resolve, reject, error, void 0);
+					}
+					let lines: string[] = buffer.toString().split('\n');
+					let output: string[] = [];
+					for (let line of lines) {
+						output.push(line.trimRight());
+					}
+					return handleResult(resolve, reject, error, Buffer.from(output.join('\n')));
+				});
+			} else {
+				fs.readFile(path, (error, buffer) => handleResult(resolve, reject, error, buffer));
+			}
 		});
 	}
 
@@ -356,6 +371,13 @@ export class FileUtils {
 		} catch (err) {
 			console.error("touch " + err);
 		}
+	}
+
+	public static async createTempFile(content: Buffer) {
+		const name = 'edo-temp-' + Date.now() + '-' + process.pid + '-' + (Math.random() * 10000).toString(36);
+		const tmpPath = path.join(path.resolve(os.tmpdir()), name);
+		await FileUtils.writefile(tmpPath, content);
+		return tmpPath;
 	}
 
 }
