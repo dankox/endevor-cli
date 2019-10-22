@@ -1,7 +1,9 @@
 import { EndevorRestApi } from "./utils/EndevorRestApi";
 import { FileUtils as fu } from './utils/FileUtils';
+import { ConsoleUtils as cu } from './utils/ConsoleUtils';
 import { ISettings } from './doc/ISettings';
 import yargs from 'yargs';
+import { isNullOrUndefined } from "util";
 
 /**
  * Endevor initialize local repo from remote URL
@@ -21,13 +23,13 @@ export class EdoInit {
 
 	private static readonly edoInitUserOptions : yargs.Options = {
 		describe: 'Username',
-		demand: true,
+		demand: false,
 		alias: 'u'
 	};
 
 	private static readonly edoInitPassOptions : yargs.Options = {
 		describe: 'Password',
-		demand: true,
+		demand: false,
 		alias: 'p'
 	};
 
@@ -62,17 +64,9 @@ export class EdoInit {
 			process.exit(1);
 		}
 
-		// set header (auth and accept)
-		let cred64 = Buffer.from(`${argv.user}:${argv.pass}`).toString("base64");
-		let headers = EndevorRestApi.getAuthHeader(cred64);
-		headers = {
-			"Accept": "application/json",
-			...headers
-		};
-
 		// verify instance (if exists)
 		console.log(`verifying url (${repoURL})...`);
-		let response = await EndevorRestApi.getHttp(repoURL, headers);
+		let response = await EndevorRestApi.getHttp(repoURL.slice(0, -1)); // with slash at the end it needs authorization header
 		if (response.status != 200) {
 			console.error(`Instance ${argv.instance} doesn't exists`);
 			process.exit(1);
@@ -80,12 +74,18 @@ export class EdoInit {
 
 		// verify credentials
 		console.log(`verifying credentials...`);
-		response = await EndevorRestApi.getHttp(repoURL + EdoInit.auth, headers);
-		if (response.status != 200 && response.status != 206) {
-			console.error("Credentials invalid!");
-			console.error(response);
+		let cred64 = '';
+		try {
+			cred64 = await cu.verifyCredentials(repoURL, argv.user, argv.pass);
+		} catch (err) {
+			console.error("Error while verifying credentials.\n" + err);
 			process.exit(1);
 		}
+		let headers = EndevorRestApi.getAuthHeader(cred64);
+		headers = {
+			"Accept": "application/json",
+			...headers
+		};
 
 		// setup local repo config
 		console.log("setting up local repo...");
@@ -174,3 +174,6 @@ async function setupSubMap() {
 	});
 	return fu.writefile(fu.edoDir + "/" + fu.subMapFile, Buffer.from(output));
 }
+
+// Test
+// EdoInit.init({url: "http://ca31.ca.com:9009/EndevorService/rest/ENWSTSTC"});

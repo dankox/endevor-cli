@@ -4,6 +4,7 @@ import http from "http";
 import https from "https";
 import * as zlib from "zlib";
 import { IRestResponse } from "../doc/IRestResponse";
+import { isNullOrUndefined } from "util";
 
 /**
  * Endevor Rest API functions
@@ -49,8 +50,11 @@ export class EndevorRestApi {
 	 * @param url full URL which is requested (e.g.: http://localhost:8080/example/link)
 	 * @param headers used in the request
 	 */
-	public static async getHttp(url: string, headers: any): Promise<IRestResponse> {
+	public static async getHttp(url: string, headers?: any): Promise<IRestResponse> {
 		return new Promise<any>((resolve, reject) => {
+			if (isNullOrUndefined(headers)) {
+				headers = { "Accept": "application/json" };
+			}
 			const tUrl = nodeurl.parse(url);
 			let client: any = http;
 			if (!headers['accept-encoding']) {
