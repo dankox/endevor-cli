@@ -1,5 +1,7 @@
 import * as diff from "diff";
 import { IMerge3way } from "./doc/IMerge3way";
+import { FileUtils as fu } from "./utils/FileUtils";
+import { isNullOrUndefined } from "util";
 
 /**
  * Endevor merge functionality
@@ -24,11 +26,13 @@ export class EdoMerge {
 		let theirs = argv.theirs;
 		let mineName = "LOCAL";
 		if (argv.mineName) mineName = argv.mineName;
-		let theirsName = "LOCAL";
+		let theirsName = "REMOTE";
 		if (argv.theirsName) theirsName = argv.theirsName;
 
 		// run 3 way merge
 		let parse = diff.merge(mine, theirs, base);
+		let baseArr: string[] = base.split('\n');
+		let baseIdx: number = 1;
 
 		let output: string[] = [];
 		let conflicta: string[] = [];
@@ -42,6 +46,18 @@ export class EdoMerge {
 		// go thru each hunk and check for conflicts (hunk.conflict)
 		parse.hunks.forEach((hunk: any) => {
 			conflict = false;
+			// handle beginnig of the hunk
+			if (!isNullOrUndefined(hunk.oldStart)) {
+				if (hunk.oldStart > baseIdx) {
+					// copy lines infront of the hunk
+					for (let i = baseIdx; i < hunk.oldStart; i++) {
+						output.push(baseArr[i - 1]);
+					}
+					if (!isNullOrUndefined(hunk.oldLines)) {
+						baseIdx = hunk.oldStart + hunk.oldLines; // move base index
+					}
+				}
+			}
 			hunk.lines.forEach((line: any) => {
 				// line without conflict
 				if (typeof line == 'string')  {
@@ -121,15 +137,21 @@ export class EdoMerge {
 						break;
 					}
 				}
-				output.push("<<<<<<< LOCAL");
+				output.push("<<<<<<< " + mineName);
 				output.push(...conflicta.slice(0, idxa + 1)); // push in only conflicting
 				// output.push("|||||||");
 				// output.push(...conflictbase);
 				output.push("=======");
 				output.push(...conflictb.slice(0, idxb + 1)); // push in only conflicting
-				output.push(">>>>>>> REMOTE");
+				output.push(">>>>>>> " + theirsName);
 				if (nonconflict.length > 0) // push non-conflicting at the end
 					output.push(...nonconflict.reverse());
+			}
+			// handle remaining of the file (if hunk doesn't cover it)
+			if (baseIdx <= baseArr.length) {
+				for (let i = baseIdx; i <= baseArr.length; i++) {
+					output.push(baseArr[i - 1]);
+				}
 			}
 		});
 		if (finalConflict) {
@@ -143,24 +165,12 @@ export class EdoMerge {
 }
 
 // Test
-// let base = `Hello
-// Danko1
-// Danko2
+// async function test() {
+// 	let trimTrailingSpace = true;
+// 	let baseStr = (await fu.readfile(`../test/endevorclitst/.endevor/map/DEV-1-ESCM180-DXKL/remote/1281d60fc2636b8df44696aad18e05e5d72fc670`, trimTrailingSpace)).toString();
+// 	const mineStr = (await fu.readfile('../test/endevorclitst/ASMPGM/BC1PSAPI', trimTrailingSpace)).toString();
+// 	const theirsStr = (await fu.readfile(`../test/endevorclitst/.endevor/map/DEV-1-ESCM180-DXKL/remote/a729c3537eb4987330ab95db9c4e198078e0ef80`, trimTrailingSpace)).toString();
+// 	console.log(EdoMerge.merge3way({ base: baseStr, mine: mineStr, theirs: theirsStr }).join('\n'));
+// }
 
-// Let's do this
-// `;
-
-// let bA = `Hello
-// Dragon
-// Danko2
-// Hello
-
-// Let's do this`;
-
-// let bB = `Hello
-// Danko2
-// duuuuude
-// Danko3
-// Let's do this`;
-
-// console.log(EdoMerge.merge3way({ base: base, mine: bA, theirs: bB }).join('\n'));
+// test();

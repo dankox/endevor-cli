@@ -102,41 +102,42 @@ export class EdoPull {
 		console.log("updating working directory...");
 		for (let element of elements) {
 			let elemParts = fu.splitX(element, '-', 1);
-			let filename = `./${elemParts[0]}/${elemParts[1]}`;
+			let wdFile = `./${elemParts[0]}/${elemParts[1]}`;
 			let tmpItem = fu.splitX(index_list[element], ',', 4); // lsha1,rsha1,fingerprint,fileExt,typeName-fullElmName
 			// TODO: deleted?? should be merged somehow with local? conflict??
 			if (tmpItem[1] == 'rsha1')
 				continue; // for not pulled element, skip merge
 
-			const workExist: boolean = await fu.exists(filename);
+			const workExist: boolean = await fu.exists(wdFile);
 			if (tmpItem[0] == 'lsha1' && !workExist) { // if no local and doesn't exist in working directory copy it there
 				try {
-					await fu.copyFile(`${fu.edoDir}/${fu.mapDir}/${stage}/${fu.remote}/${tmpItem[1]}`, filename);
+					await fu.copyFile(`${fu.edoDir}/${fu.mapDir}/${stage}/${fu.remote}/${tmpItem[1]}`, wdFile);
 					// save sha1 from remote to local
 					tmpItem[0] = tmpItem[1];
 					index_list[element] = tmpItem.join(','); // update index list
 				} catch (err) {
-					console.error(`Error while pulling element '${element}': ${err}`);
+					console.error(`Error while updating working directory element '${element}': ${err}`);
 				}
 			} else { // merge (if it has lsha1 or it already exists in workdir, create merge content)
 				try {
 					if (tmpItem[0] == 'lsha1' && workExist) {
-						const lsha1 = await hash.getFileHash(filename);
+						const lsha1 = await hash.getFileHash(wdFile);
 						if (lsha1 == tmpItem[1]) continue; // for the same as remote, skip
 					}
 					if (isNullOrUndefined(orig_base_list[element])) {
 						// TODO: do 2 way diff when don't have base (remote from before)
 						// for no base, I should just show conflict, incomming and mine... <<< local === >>> remote
 						// Currently no base, no merge, just overwrite local changes = =
-						await fu.copyFile(`${fu.edoDir}/${fu.mapDir}/${stage}/${fu.remote}/${tmpItem[1]}`, filename);
+						await fu.copyFile(`${fu.edoDir}/${fu.mapDir}/${stage}/${fu.remote}/${tmpItem[1]}`, wdFile);
 						if (workExist) {
-							console.log(`'${filename}' in working directory overwritten... (NOT TRACKED!!! MERGE DOESN'T WORK!!!)`);
+							console.log(`'${wdFile}' in working directory overwritten, do 'edo diff' to see differences... (NOT TRACKED!!! MERGE DOESN'T WORK!!!)`);
 						}
 						continue;
 					}
-					let baseStr = (await fu.readfile(`${fu.edoDir}/${fu.mapDir}/${stage}/${fu.remote}/${orig_base_list[element]}`)).toString();
-					const mineStr = (await fu.readfile(filename)).toString();
-					const theirsStr = (await fu.readfile(`${fu.edoDir}/${fu.mapDir}/${stage}/${fu.remote}/${tmpItem[1]}`)).toString();
+					let trimTrailingSpace = true;
+					let baseStr = (await fu.readfile(`${fu.edoDir}/${fu.mapDir}/${stage}/${fu.remote}/${orig_base_list[element]}`, trimTrailingSpace)).toString();
+					const mineStr = (await fu.readfile(wdFile, trimTrailingSpace)).toString();
+					const theirsStr = (await fu.readfile(`${fu.edoDir}/${fu.mapDir}/${stage}/${fu.remote}/${tmpItem[1]}`, trimTrailingSpace)).toString();
 					const mergearg: IMerge3way = {
 						base: baseStr,
 						mine: mineStr,

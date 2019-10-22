@@ -3,6 +3,8 @@ import { FileUtils as fu } from "./utils/FileUtils";
 import path from "path";
 import { HashUtils as hash } from "./utils/HashUtils";
 import { spawn, spawnSync, exec } from "child_process";
+import { isNullOrUndefined } from "util";
+import { removeListener } from "cluster";
 
 /**
  * Endevor restore working directory to local or remote (like discard)
@@ -12,17 +14,26 @@ export class EdoDifftool {
 		describe: 'Use difftool on file to diff against local/remote stage'
 	};
 
-	private static readonly edoDifftoolCommit : yargs.Options = {
+	private static readonly edoDifftoolCached : yargs.Options = {
 		describe: 'Use difftool on commited changes against remote changes (local stage with remote stage)',
 		demand: false,
 		boolean: true,
+		conflicts: "remote",
 		alias: 'c'
 	};
 
+	private static readonly edoDifftoolRemote : yargs.Options = {
+		describe: 'Use difftool on file changes against remote changes (working directory files with remote stage)',
+		demand: false,
+		boolean: true,
+		conflicts: "cached",
+		alias: 'r'
+	};
 
 	public static edoDifftoolOptions = {
 		file: EdoDifftool.edoDifftoolFile,
-		commit: EdoDifftool.edoDifftoolCommit
+		cached: EdoDifftool.edoDifftoolCached,
+		remote: EdoDifftool.edoDifftoolRemote
 	};
 
 
@@ -32,6 +43,11 @@ export class EdoDifftool {
 	 */
 	public static async difftool(argv: any) {
 		let stage = await fu.getStage();
+
+		// cached, it's always commited changes against remote version
+		let cached: boolean = !isNullOrUndefined(argv.cached) ? argv.cached : false;
+		// remote, workdir file against remote version
+		let remote: boolean = !isNullOrUndefined(argv.remote) ? argv.remote : false;
 
 		let eleList: { [key: string]: string } = {};
 		try {
@@ -46,47 +62,61 @@ export class EdoDifftool {
 
 		let lines = Object.values(eleList);
 		let hasChanges: boolean = false;
-		let output: string[] = [];
 
 		for (let item of lines) {
 			let tmpItem = fu.splitX(item, ',', 4);
 			let eleParts = fu.splitX(tmpItem[4], '-', 1);
-			let file = `./${eleParts[0]}/${eleParts[1]}`;
-			if (!await fu.exists(file)) {
+			let bFile = `./${eleParts[0]}/${eleParts[1]}`;
+			if (cached) {
+				if (tmpItem[0] == 'lsha1') continue; // for non-existent local commit, skip
+				bFile = `${localStageDir}/${fu.remote}/${tmpItem[0]}`;
+				try {
+					const cacheStr = (await fu.readfile(bFile));
+					bFile = await fu.createTempFile(cacheStr); // create temp for difftool (don't provide internal file)
+				} catch (err) {
+					console.error(`Error processing file './${eleParts[0]}/${eleParts[1]}': ${err}`);
+					continue;
+				}
+			}
+			if (!await fu.exists(bFile)) {
 				if (tmpItem[0] == 'lsha1' && tmpItem[1] == 'rsha1') {
 					continue; // doesn't exists in work directory, local or in remote
 				}
-				console.log(`'${file}' deleted... !!! DOESN'T WORK NOW!!!`); // TODO: not working currently (not sure how to handle deletion)
+				console.log(`'${bFile}' deleted... !!! DOESN'T WORK NOW!!!`); // TODO: not working currently (not sure how to handle deletion)
 				hasChanges = true;
 				continue; // next one... sha1 check not necessary
 			}
+
+
 			try {
-				let lsha1 = await hash.getFileHash(file);
-				let ignoreTrailingSpace = true;
-				if (tmpItem[0] != 'lsha1') {
-					if (lsha1 != tmpItem[0]) {
-						// changes against local
-						const oldFile = `${localStageDir}/${fu.remote}/${tmpItem[0]}`;
-						const oldStr = (await fu.readfile(oldFile));
-						const tempPath = await fu.createTempFile(oldStr);
-						execDiffTool(tempPath, file);
-						hasChanges = true;
-					}
-				} else if (tmpItem[1] != 'rsha1') {
-					if (lsha1 != tmpItem[1]) {
-						// changes against remote
-						const oldFile = `${localStageDir}/${fu.remote}/${tmpItem[1]}`;
-						const oldStr = (await fu.readfile(oldFile));
-						const tempPath = await fu.createTempFile(oldStr);
-						execDiffTool(tempPath, file);
-						hasChanges = true;
-					}
-				} else {
-					// TODO: nothing in local or remote (cannot compare maybe put ++ for full file?)
+				let lsha1 = tmpItem[0]; // get first local sha1
+				let rsha1 = tmpItem[1]; // get remote sha1
+				if (!cached) { // not cached, get the real file sha1
+					lsha1 = await hash.getFileHash(bFile);
+				} else if (lsha1 == 'lsha1') {
+					continue; // cached, but there is no cache
 				}
+				if (!remote && !cached) {
+					if (tmpItem[0] != 'lsha1') {
+						rsha1 = tmpItem[0]; // not --remote or --cached and there is local
+					} else if (rsha1 == 'rsha1') {
+						// TODO: nothing in local or remote (cannot compare maybe put ++ for full file?)
+						continue; // remote is not set and neither is local
+					}
+				} else if (rsha1 == 'rsha1') {
+					// TODO: there is no remote and we want it (because of remote or cached)
+					continue;
+				}
+				if (lsha1 == rsha1) continue; // if no diff, skip
+
+				let oldFile = `${localStageDir}/${fu.remote}/${rsha1}`;
+				const oldStr = (await fu.readfile(oldFile));
+				const aFile = await fu.createTempFile(oldStr); // create temp for difftool (don't provide internal file)
+				execDiffTool(aFile, bFile);
+				hasChanges = true;
 			} catch (err) {
 				// error while reading file, so don't commit it.
-				console.error(`Error reading file '${file}: ${err}`);
+				console.error(`Error processing file './${eleParts[0]}/${eleParts[1]}': ${err}`);
 				continue;
 			}
 		}

@@ -19,11 +19,26 @@ export class EdoDiff {
 		boolean: true,
 		alias: 'c'
 	};
+	private static readonly edoDiffCached : yargs.Options = {
+		describe: 'Diff commited changes with remote changes (local stage with remote stage)',
+		demand: false,
+		boolean: true,
+		conflicts: "remote",
+		alias: 'c'
+	};
 
+	private static readonly edoDiffRemote : yargs.Options = {
+		describe: 'Diff working directory against remote changes',
+		demand: false,
+		boolean: true,
+		conflicts: "cached",
+		alias: 'r'
+	};
 
 	public static edoDiffOptions = {
 		file: EdoDiff.edoDiffFile,
-		commit: EdoDiff.edoDiffCommit
+		cached: EdoDiff.edoDiffCached,
+		remote: EdoDiff.edoDiffRemote
 	};
 
 
@@ -33,6 +48,11 @@ export class EdoDiff {
 	 */
 	public static async diff(argv: any) {
 		let stage = await fu.getStage();
+
+		// cached, it's always commited changes against remote version
+		let cached: boolean = !isNullOrUndefined(argv.cached) ? argv.cached : false;
+		// remote, workdir file against remote version
+		let remote: boolean = !isNullOrUndefined(argv.remote) ? argv.remote : false;
 
 		let eleList: { [key: string]: string } = {};
 		try {
@@ -44,64 +64,58 @@ export class EdoDiff {
 		}
 
 		let localStageDir = `${fu.edoDir}/${fu.mapDir}/${stage}`;
-		// if (!isNullOrUndefined(argv.file)) {
-		// 	let fileRestore: string = argv.file;
-		// 	if (!await fu.exists(fileRestore)) {
-		// 		console.error(`File '${fileRestore}' doesn't exists!`);
-		// 		process.exit(1);
-		// 	}
-		// 	let dirRestore: string = path.dirname(fileRestore);
-		// 	fileRestore = path.basename(fileRestore);
-		// 	dirRestore = path.basename(dirRestore);
-		// 	let elementIdx = `${dirRestore}-${fileRestore}`;
-		// 	await restoreFile(localStageDir, eleList[elementIdx]);
-		// 	console.log("file restored!");
-		// } else {
 
 		let lines = Object.values(eleList);
 		let hasChanges: boolean = false;
 		let output: string[] = [];
-		// for (let item of lines) {
-		// 	await commitFile(localStageDir, item);
-		// }
+
 		for (let item of lines) {
 			let tmpItem = fu.splitX(item, ',', 4);
 			let eleParts = fu.splitX(tmpItem[4], '-', 1);
-			let file = `./${eleParts[0]}/${eleParts[1]}`;
-			if (!await fu.exists(file)) {
+			let bFile = `./${eleParts[0]}/${eleParts[1]}`;
+			if (cached) {
+				if (tmpItem[0] == 'lsha1') continue; // for non-existent local commit, skip
+				bFile = `${localStageDir}/${fu.remote}/${tmpItem[0]}`;
+			}
+			if (!await fu.exists(bFile)) {
 				if (tmpItem[0] == 'lsha1' && tmpItem[1] == 'rsha1') {
 					continue; // doesn't exists in work directory, local or in remote
 				}
-				console.log(`'${file}' deleted... !!! DOESN'T WORK NOW!!!`); // TODO: not working currently (not sure how to handle deletion)
+				console.log(`'${bFile}' deleted... !!! DOESN'T WORK NOW!!!`); // TODO: not working currently (not sure how to handle deletion)
 				hasChanges = true;
 				continue; // next one... sha1 check not necessary
 			}
 			try {
-				let lsha1 = await hash.getFileHash(file);
-				let ignoreTrailingSpace = true;
-				if (tmpItem[0] != 'lsha1') {
-					if (lsha1 != tmpItem[0]) {
-						// changes against local
-						const oldStr = (await fu.readfile(`${localStageDir}/${fu.remote}/${tmpItem[0]}`, ignoreTrailingSpace)).toString();
-						const newStr = (await fu.readfile(file, ignoreTrailingSpace)).toString();
-						// output.push(diff.createTwoFilesPatch(`a/${eleParts[0]}/${eleParts[1]}`, `b/${eleParts[0]}/${eleParts[1]}`, oldStr, newStr));
-						output.push(...diff.createTwoFilesPatch(`a/${eleParts[0]}/${eleParts[1]}`, `b/${eleParts[0]}/${eleParts[1]}`, oldStr, newStr).split('\n'));
-						hasChanges = true;
-					}
-				} else if (tmpItem[1] != 'rsha1') {
-					if (lsha1 != tmpItem[1]) {
-						// changes against remote
-						const oldStr = (await fu.readfile(`${localStageDir}/${fu.remote}/${tmpItem[1]}`, ignoreTrailingSpace)).toString();
-						const newStr = (await fu.readfile(file, ignoreTrailingSpace)).toString();
-						output.push(...diff.createTwoFilesPatch(`a/${eleParts[0]}/${eleParts[1]}`, `b/${eleParts[0]}/${eleParts[1]}`, oldStr, newStr).split('\n'));
-						hasChanges = true;
-					}
-				} else {
-					// TODO: nothing in local or remote (cannot compare maybe put ++ for full file?)
+				let lsha1 = tmpItem[0]; // get first local sha1
+				let rsha1 = tmpItem[1]; // get remote sha1
+				if (!cached) { // not cached, get the real file sha1
+					lsha1 = await hash.getFileHash(bFile);
+				} else if (lsha1 == 'lsha1') {
+					continue; // cached, but there is no cache
 				}
+				if (!remote && !cached) {
+					if (tmpItem[0] != 'lsha1') {
+						rsha1 = tmpItem[0]; // not --remote or --cached and there is local
+					} else if (rsha1 == 'rsha1') {
+						// TODO: nothing in local or remote (cannot compare maybe put ++ for full file?)
+						continue; // remote is not set and neither is local
+					}
+				} else if (rsha1 == 'rsha1') {
+					// TODO: there is no remote and we want it (because of remote or cached)
+					continue;
+				}
+				if (lsha1 == rsha1) continue; // if no diff, skip
+
+				let ignoreTrailingSpace = true;
+				let aFile = `${localStageDir}/${fu.remote}/${rsha1}`;
+				const oldStr = (await fu.readfile(aFile, ignoreTrailingSpace)).toString();
+				const newStr = (await fu.readfile(bFile, ignoreTrailingSpace)).toString();
+				// output.push(diff.createTwoFilesPatch(`a/${eleParts[0]}/${eleParts[1]}`, `b/${eleParts[0]}/${eleParts[1]}`, oldStr, newStr));
+				output.push(...diff.createTwoFilesPatch(`a/${eleParts[0]}/${eleParts[1]}`, `b/${eleParts[0]}/${eleParts[1]}`, oldStr, newStr).split('\n'));
+				hasChanges = true;
 			} catch (err) {
 				// error while reading file, so don't commit it.
-				console.error(`Error reading file '${file}: ${err}`);
+				console.error(`Error reading file '${bFile}: ${err}`);
 				continue;
 			}
 		}
