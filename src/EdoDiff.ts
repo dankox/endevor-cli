@@ -13,12 +13,6 @@ export class EdoDiff {
 		describe: 'File name which you want to diff with local/remote stage'
 	};
 
-	private static readonly edoDiffCommit : yargs.Options = {
-		describe: 'Diff commited changes with remote changes (local stage with remote stage)',
-		demand: false,
-		boolean: true,
-		alias: 'c'
-	};
 	private static readonly edoDiffCached : yargs.Options = {
 		describe: 'Diff commited changes with remote changes (local stage with remote stage)',
 		demand: false,
