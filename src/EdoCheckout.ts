@@ -22,6 +22,7 @@ export class EdoCheckout {
 	public static async checkout(argv: any) {
 		let stage: string = argv.stage;
 
+		// TODO: if nonexistent directory but in directory version like (error)
 		if (await fu.exists(stage)) {
 			// get the final full stage in env-stg-sys-sub format
 			if (stage.startsWith(".map/")) {

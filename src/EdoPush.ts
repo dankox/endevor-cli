@@ -80,7 +80,7 @@ export class EdoPush {
 		const asyncPushElement = async (element: string) => {
 			const tmpItem = fu.splitX(element, ',', 4);
 			if (tmpItem[0] != 'lsha1' && tmpItem[0] != tmpItem[1]) { // push only locally updated files
-				const key = await pushElement(setting.repoURL, stage, tmpItem[4], tmpItem[0], ccid, comment, pushHead);
+				const key = await pushElement(setting.repoURL, stage, tmpItem[4], tmpItem[0], ccid, comment, tmpItem[2], pushHead);
 				if (!isNullOrUndefined(key))
 					pushedKeys.push(key);
 			}
@@ -106,13 +106,13 @@ export class EdoPush {
 
 }
 
-async function pushElement(repoURL: string, stage: string, element: string, file: string, ccid: string, comment: string, headers: any) {
+async function pushElement(repoURL: string, stage: string, element: string, file: string, ccid: string, comment: string, finger: string, headers: any) {
 	try {
 		let stageParts = stage.split('-');
 		let elemParts = fu.splitX(element, '-', 1);
 		file = `${fu.edoDir}/${fu.mapDir}/${stage}/${fu.remote}/${file}`;
 		let eleURL = `env/${stageParts[0]}/stgnum/${stageParts[1]}/sys/${stageParts[2]}/subsys/${stageParts[3]}/type/${elemParts[0]}/ele/` + encodeURIComponent(elemParts[1]);
-		const response: IRestResponse = await EndevorRestApi.addElementHttp(repoURL + eleURL, file, ccid, comment,headers);
+		const response: IRestResponse = await EndevorRestApi.addElementHttp(repoURL + eleURL, file, ccid, comment, finger, headers);
 		process.stdout.write('.');
 
 		let jsonBody;
