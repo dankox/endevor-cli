@@ -1,4 +1,3 @@
-import * as request from "request";
 import FormData from "form-data";
 import * as fs from "fs";
 import * as nodeurl from "url";
@@ -20,117 +19,25 @@ export class EndevorRestApi {
 		return headers;
 	}
 
-
-	public static async getRequest(url: string, headers: any): Promise<any> {
-		// if (!headers['accept-encoding']) {
-		// 	headers['accept-encoding'] = 'gzip,deflate';
-		// }
-		return new Promise<any>((resolve, reject) => {
-			request.get({url: url, headers: headers},
-				(err, response, body) => {
-					if (err) {
-						console.log(err);
-						reject(err);
-					} else {
-						const responseJson = {
-							status: response.statusCode,
-							headers: response.headers,
-							size: body.length,
-							body: body
-						};
-						resolve(responseJson);
-					}
-				});
-		});
-	}
-
 	/**
-	 * Get HTTP request done thru nodejs http/https module which returns Promise (IRestResponse)
-	 *
-	 * This function automatically adds accept-encoding: gzip,deflate, and uncompress the response
-	 * if obtained in one of those formats.
+	 * GET HTTP request done thru nodejs http/https module which returns Promise (IRestResponse)
 	 *
 	 * @param url full URL which is requested (e.g.: http://localhost:8080/example/link)
 	 * @param headers used in the request
 	 */
 	public static async getHttp(url: string, headers?: any): Promise<IRestResponse> {
 		return new Promise<any>((resolve, reject) => {
-			if (isNullOrUndefined(headers)) {
-				headers = { "Accept": "application/json" };
-			}
-			const tUrl = nodeurl.parse(url);
-			let client: any = http;
-			if (!headers['accept-encoding']) {
-				headers = {
-					"accept-encoding": 'gzip,deflate',
-					...headers
-				};
-			}
 			const opts = {
 				method: "GET",
-				hostname: tUrl.hostname,
-				port: tUrl.port,
-				path: tUrl.path,
-				rejectUnauthorized: false,
 				headers: headers
 			};
-			if (tUrl.protocol === "https:") {
-				client = https;
-				// opts.rejectUnauthorized = false;
-			}
-
-			let data: Buffer[] = [];
-			let size = 0;
-
-			let thisRequest: http.ClientRequest = client.request(opts, (response: http.IncomingMessage) => {
-				response.pause();
-				let stream: http.IncomingMessage | zlib.Unzip = response;
-
-				// if compressed, pipe it to uncompression function
-				if (response.headers['content-encoding'] === 'gzip' || response.headers['content-encoding'] === 'deflate') {
-					stream = zlib.createUnzip();
-					response.pipe(stream);
-				}
-
-				stream.on('data', chunk => {
-					data.push(chunk);
-					size += chunk.length;
-				});
-
-				stream.on('end', () => {
-					let responseJson: IRestResponse = {
-						status: response.statusCode,
-						headers: response.headers,
-						size: size,
-						body: null
-					};
-					if (response.headers['content-type'] == 'application/json') {
-						responseJson.body = data.join('').toString();
-					} else if (response.headers['content-type'] == 'application/octet-stream') {
-						responseJson.body = Buffer.concat(data);
-					} else {
-						responseJson.body = data.join('');
-					}
-
-					resolve(responseJson);
-					return;
-				});
-
-				stream.on('error', err => {
-					thisRequest.abort();
-					reject(err);
-					return;
-				});
-				response.resume();
-			});
-
+			let thisRequest = this.httpRequest(url, opts, resolve, reject);
 			thisRequest.on('error', err => {
 				reject(err);
 			});
 			thisRequest.end();
 		});
 	}
-
 
 	/**
 	 * PUT HTTP request done thru nodejs http/https module which returns Promise (IRestResponse)
@@ -143,87 +50,123 @@ export class EndevorRestApi {
 	 * @param comment for add file
 	 * @param headers used in the request
 	 */
-	public static async addElementHttp(url: string, file: string, ccid: string, comment: string, headers: any): Promise<IRestResponse> {
+	public static async addElementHttp(url: string, file: string, ccid: string, comment: string, fingerprint: string, headers: any): Promise<IRestResponse> {
 		return new Promise<any>((resolve, reject) => {
 			let addForm = new FormData();
 			addForm.append("ccid", ccid);
 			addForm.append("comment", comment);
+			addForm.append("fingerprint", fingerprint);
 			addForm.append("fromFile", fs.createReadStream(file));
 			addForm.append("oveSign", "yes"); // TODO: maybe do option on this????
 			headers = {
 				...addForm.getHeaders(),
 				...headers
 			};
-
-			const tUrl = nodeurl.parse(url);
-			let client: any = http;
 			const opts = {
 				method: "PUT",
-				hostname: tUrl.hostname,
-				port: tUrl.port,
-				path: tUrl.path,
 				rejectUnauthorized: false,
 				headers: headers
 			};
-			if (tUrl.protocol === "https:") {
-				client = https;
-				// opts.rejectUnauthorized = false;
+
+			let thisRequest = this.httpRequest(url, opts, resolve, reject);
+			addForm.pipe(thisRequest);
+		});
+	}
+
+	/**
+	 * Create ClientRequest for specific URL and options and assign on response listener.
+	 *
+	 * This function automatically adds accept-encoding: gzip,deflate, and uncompress the response
+	 * if obtained in one of those formats.
+	 *
+	 * It also adds accept: application/json if no header is specified.
+	 *
+	 * @param url full URL requested
+	 * @param options http options
+	 * @param resolve Promise function resolve
+	 * @param reject Promise function reject
+	 */
+	public static httpRequest(url: string, options: http.RequestOptions | https.RequestOptions, resolve: any, reject: any): http.ClientRequest {
+		let headers = options.headers;
+		if (isNullOrUndefined(headers)) {
+			headers = { "Accept": "application/json" };
+		}
+		const tUrl = nodeurl.parse(url);
+		let client: typeof http | typeof https = http;
+		if (!headers['accept-encoding']) {
+			headers = {
+				"accept-encoding": 'gzip,deflate',
+				...headers
+			};
+		}
+		options.headers = headers;
+		const opts: http.RequestOptions | https.RequestOptions = {
+			hostname: tUrl.hostname,
+			port: tUrl.port,
+			path: tUrl.path,
+			rejectUnauthorized: false, // TODO: option?
+			...options
+		};
+		if (tUrl.protocol === "https:") {
+			client = https;
+			// opts.rejectUnauthorized = false;
+		}
+
+		let data: Buffer[] = [];
+		let size = 0;
+
+		let thisRequest: http.ClientRequest = client.request(opts, (response: http.IncomingMessage) => {
+			response.pause();
+			let stream: http.IncomingMessage | zlib.Unzip = response;
+
+			// if compressed, pipe it to uncompression function
+			if (response.headers['content-encoding'] === 'gzip' || response.headers['content-encoding'] === 'deflate') {
+				stream = zlib.createUnzip();
+				response.pipe(stream);
 			}
 
-			let data: Buffer[] = [];
-			let size = 0;
+			stream.on('data', chunk => {
+				data.push(chunk);
+				size += chunk.length;
+			});
 
-			// do put request with form
-			let request = client.request(opts);
-			addForm.pipe(request);
-
-			// let thisRequest: http.ClientRequest = client.request(opts, (response: http.IncomingMessage) => {
-			request.on('response', (response: http.IncomingMessage) => {
-				let stream: http.IncomingMessage | zlib.Unzip = response;
-
-				// if compressed, pipe it to uncompression function
-				if (response.headers['content-encoding'] === 'gzip' || response.headers['content-encoding'] === 'deflate') {
-					stream = zlib.createUnzip();
-					response.pipe(stream);
+			stream.on('end', () => {
+				let responseJson: IRestResponse = {
+					status: response.statusCode,
+					headers: response.headers,
+					size: size,
+					body: null
+				};
+				if (response.headers['content-type'] == 'application/json') {
+					responseJson.body = Buffer.concat(data).toString(); // data.join('').toString();
+				} else if (response.headers['content-type'] == 'application/octet-stream') {
+					responseJson.body = Buffer.concat(data);
+				} else if (response.headers['content-type'] == 'text/plain') {
+					responseJson.body = Buffer.concat(data).toString();
+				} else {
+					responseJson.body = Buffer.concat(data); // data.join('');
 				}
 
-				stream.on('data', chunk => {
-					data.push(chunk);
-					size += chunk.length;
-				});
-
-				stream.on('end', () => {
-					let responseJson: IRestResponse = {
-						status: response.statusCode,
-						headers: response.headers,
-						size: size,
-						body: null
-					};
-					if (response.headers['content-type'] == 'application/json') {
-						responseJson.body = data.join('').toString();
-					} else if (response.headers['content-type'] == 'application/octet-stream') {
-						responseJson.body = Buffer.concat(data);
-					} else {
-						responseJson.body = data.join('');
-					}
-
-					resolve(responseJson);
-					return;
-				});
-
-				stream.on('error', err => {
-					reject(err);
-					return;
-				});
+				resolve(responseJson);
+				return;
 			});
 
-			request.on('abort', (err: any) => {
+			stream.on('error', err => {
+				thisRequest.abort();
 				reject(err);
+				return;
 			});
-
-			request.on('error', (err: any) => {
-				reject(err);
-			});
+			response.resume();
 		});
+
+		thisRequest.on('abort', (err: any) => {
+			reject(err);
+		});
+
+		thisRequest.on('error', err => {
+			reject(err);
+		});
+
+		return thisRequest;
 	}
 }
