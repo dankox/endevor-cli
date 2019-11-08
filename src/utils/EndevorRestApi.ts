@@ -6,7 +6,6 @@ import https from "https";
 import * as zlib from "zlib";
 import { IRestResponse } from "../doc/IRestResponse";
 import { isNullOrUndefined } from "util";
-import { format } from "path";
 
 /**
  * Endevor Rest API functions

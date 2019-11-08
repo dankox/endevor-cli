@@ -4,6 +4,7 @@ import { ISettings } from "./doc/ISettings";
 import { EndevorRestApi } from "./utils/EndevorRestApi";
 import { isNullOrUndefined } from "util";
 import { IRestResponse } from "./doc/IRestResponse";
+import { IEleList } from "./doc/IEleList";
 
 /**
  * Endevor fetch remote stage to local
@@ -55,11 +56,36 @@ export class EdoFetch {
 
 		const asyncGetElements = async (stageItem: string) => {
 			let stage = stageItem.split('-');
-			const listEle = `env/${stage[0]}/stgnum/${stage[1]}/sys/${stage[2]}/subsys/${stage[3]}/type/*/ele`;
+			const listEle = `env/${stage[0]}/stgnum/${stage[1]}/sys/${stage[2]}/subsys/${stage[3]}/type/*/ele?data=BAS`; // basic is enough
 			console.log(`getting list for ${stageItem}...`);
-			let eles = await getElementList(setting.repoURL + listEle, listHead);
-			console.log(`writing list for ${stageItem}...`);
-			return fu.writeEleList(`${fu.edoDir}/${fu.mapDir}/${stageItem}/${fu.index}`, eles);
+			let eles = await getElementList(setting.repoURL + listEle, listHead); // get list for index from remote
+			let index_list: { [key: string]: string } = {};
+			try {
+				index_list = await fu.getEleListFromStage(stageItem); // get local index (for comparision)
+			} catch (err) {
+				// don't care, list remains empty
+			}
+			if (!isNullOrUndefined(eles)) {
+				eles.forEach((ele: IEleList) => {
+					// CSV line: `lsha1,rsha1,${ele.fingerprint},${ele.fileExt},${ele.typeName}-${ele.fullElmName}\n`; // old format
+					// CSV line: `lsha1,rsha1,${ele.fingerprint},history_sha1,${ele.typeName}-${ele.fullElmName}\n`; // new format
+					const key = `${ele.typeName}-${ele.fullElmName}`;
+					if (!isNullOrUndefined(index_list[key])) {
+						let tmpItem = fu.splitX(index_list[key], ',', 4); // lsha1,rsha1,fingerprint,hsha1,typeName-fullElmName (new version)
+						if (tmpItem[2] != ele.fingerprint) {
+							tmpItem[2] = "null"; // nullify fingerprint for pull (it pulls only null fingerprint)
+							index_list[key] = tmpItem.join(','); // update index list
+						}
+					} else {
+						// for non-existent index key, create new one
+						index_list[key] = `lsha1,rsha1,null,null,${key}`;
+					}
+				});
+				console.log(`writing list for ${stageItem}...`);
+				return fu.writeEleList(`${fu.edoDir}/${fu.mapDir}/${stageItem}/${fu.index}`, index_list);
+			} else {
+				console.error("list not returned!");
+			}
 		};
 		await Promise.all(stageArr.map(item => asyncGetElements(item)));
 
@@ -67,7 +93,7 @@ export class EdoFetch {
 	}
 }
 
-async function getElementList(eleURL:string, headers: any) {
+async function getElementList(eleURL:string, headers: any): Promise<any[] | null> {
 	try {
 		const response: IRestResponse = await EndevorRestApi.getHttp(eleURL, headers);
 		console.log("list obtained...");

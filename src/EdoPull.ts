@@ -37,6 +37,7 @@ export class EdoPull {
 
 		let file: string = argv.file;
 		let search: boolean = false;
+		let forceFile: boolean = false;
 
 		let file_list: {[key: string]: string } = {}; // list for download
 		let index_list: {[key: string]: string } = {}; // list from index file
@@ -49,6 +50,7 @@ export class EdoPull {
 		if (isNullOrUndefined(file)) {
 			file_list = index_list;
 		} else {
+			forceFile = true; // force pull when file specified
 			if (await fu.exists(file)) {
 				// get the final full file name in proper format
 				if (file.startsWith(".ele/")) {
@@ -73,6 +75,8 @@ export class EdoPull {
 		let pulledKeys: any[] = [];
 
 		const asyncGetElement = async (element: string) => {
+			let tmpItem = fu.splitX(file_list[element], ',', 4); // lsha1,rsha1,fingerprint,hsha1,typeName-fullElmName
+			if (tmpItem[2] != 'null' && !forceFile) return; // do not pull for existing fingerprint unless file specified
 			const key = await getElement(setting.repoURL, stage, element, pullHead, search);
 			if (!isNullOrUndefined(key))
 				pulledKeys.push(key);
@@ -100,7 +104,8 @@ export class EdoPull {
 
 		// Merging... (go thru pulled files only)
 		console.log("updating working directory...");
-		for (let element of elements) {
+		for (let pullKey of pulledKeys) {
+			const element = fu.splitX(pullKey, ',', 2)[2]; // sha1,fingerprint,type-element
 			let elemParts = fu.splitX(element, '-', 1);
 			let wdFile = `./${elemParts[0]}/${elemParts[1]}`;
 			let tmpItem = fu.splitX(index_list[element], ',', 4); // lsha1,rsha1,fingerprint,fileExt,typeName-fullElmName
@@ -130,7 +135,7 @@ export class EdoPull {
 						// Currently no base, no merge, just overwrite local changes = =
 						await fu.copyFile(`${fu.edoDir}/${fu.mapDir}/${stage}/${fu.remote}/${tmpItem[1]}`, wdFile);
 						if (workExist) {
-							console.log(`'${wdFile}' in working directory overwritten, do 'edo diff' to see differences... (NOT TRACKED!!! MERGE DOESN'T WORK!!!)`);
+							console.log(`'${wdFile}' in working directory overwritten, do 'edo diff' to see differences... (NOT TRACKED!!! MERGE DOESN'T WORK!!! probably ADD??)`);
 						}
 						continue;
 					}
@@ -138,6 +143,11 @@ export class EdoPull {
 					let baseStr = (await fu.readfile(`${fu.edoDir}/${fu.mapDir}/${stage}/${fu.remote}/${orig_base_list[element]}`, trimTrailingSpace)).toString();
 					const mineStr = (await fu.readfile(wdFile, trimTrailingSpace)).toString();
 					const theirsStr = (await fu.readfile(`${fu.edoDir}/${fu.mapDir}/${stage}/${fu.remote}/${tmpItem[1]}`, trimTrailingSpace)).toString();
+					if (mineStr == baseStr) {
+						// wdfile same as base, no local change => write remote to working directory
+						await fu.copyFile(`${fu.edoDir}/${fu.mapDir}/${stage}/${fu.remote}/${tmpItem[1]}`, wdFile);
+						continue;
+					}
 					const mergearg: IMerge3way = {
 						base: baseStr,
 						mine: mineStr,

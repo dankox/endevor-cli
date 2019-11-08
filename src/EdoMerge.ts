@@ -48,14 +48,15 @@ export class EdoMerge {
 			conflict = false;
 			// handle beginnig of the hunk
 			if (!isNullOrUndefined(hunk.oldStart)) {
+				// copy lines infront of the hunk if required
 				if (hunk.oldStart > baseIdx) {
-					// copy lines infront of the hunk
 					for (let i = baseIdx; i < hunk.oldStart; i++) {
 						output.push(baseArr[i - 1]);
 					}
-					if (!isNullOrUndefined(hunk.oldLines)) {
-						baseIdx = hunk.oldStart + hunk.oldLines; // move base index
-					}
+				}
+				// move base index
+				if (!isNullOrUndefined(hunk.oldLines)) {
+					baseIdx = hunk.oldStart + hunk.oldLines;
 				}
 			}
 			hunk.lines.forEach((line: any) => {
@@ -147,13 +148,14 @@ export class EdoMerge {
 				if (nonconflict.length > 0) // push non-conflicting at the end
 					output.push(...nonconflict.reverse());
 			}
-			// handle remaining of the file (if hunk doesn't cover it)
-			if (baseIdx <= baseArr.length) {
-				for (let i = baseIdx; i <= baseArr.length; i++) {
-					output.push(baseArr[i - 1]);
-				}
-			}
 		});
+
+		// handle remaining of the file (if hunk doesn't cover it)
+		if (baseIdx <= baseArr.length) {
+			for (let i = baseIdx; i <= baseArr.length; i++) {
+				output.push(baseArr[i - 1]);
+			}
+		}
 		if (finalConflict) {
 			output.unshift("conflict");
 		} else {
@@ -167,9 +169,12 @@ export class EdoMerge {
 // Test
 // async function test() {
 // 	let trimTrailingSpace = true;
-// 	let baseStr = (await fu.readfile(`../test/endevorclitst/.endevor/map/DEV-1-ESCM180-DXKL/remote/1281d60fc2636b8df44696aad18e05e5d72fc670`, trimTrailingSpace)).toString();
-// 	const mineStr = (await fu.readfile('../test/endevorclitst/ASMPGM/BC1PSAPI', trimTrailingSpace)).toString();
-// 	const theirsStr = (await fu.readfile(`../test/endevorclitst/.endevor/map/DEV-1-ESCM180-DXKL/remote/a729c3537eb4987330ab95db9c4e198078e0ef80`, trimTrailingSpace)).toString();
+// 	const baseStr = (await fu.readfile(`../test/cli-test-2/.endevor/map/DEV-1-ESCM180-DXKL/remote/1281d60fc2636b8df44696aad18e05e5d72fc670`, trimTrailingSpace)).toString();
+// 	// let baseStr = (await fu.readfile(`../test/cli-test-2/.endevor/map/DEV-1-ESCM180-DXKL/remote/6be16d3aad833c0e887e13ac2b24e9ca1044dc72`, trimTrailingSpace)).toString();
+// 	const mineStr = (await fu.readfile(`../test/cli-test-2/.endevor/map/DEV-1-ESCM180-DXKL/remote/6be16d3aad833c0e887e13ac2b24e9ca1044dc72`, trimTrailingSpace)).toString();
+// 	// const mineStr = (await fu.readfile('../test/cli-test-2/.endevor/map/DEV-1-ESCM180-DXKL/remote/1281d60fc2636b8df44696aad18e05e5d72fc670', trimTrailingSpace)).toString();
+// 	// const mineStr = '';
+// 	const theirsStr = (await fu.readfile(`../test/cli-test-2/.endevor/map/DEV-1-ESCM180-DXKL/remote/60a7828196ffa396a4a80eff42bf9b2fd590ed6a`, trimTrailingSpace)).toString();
 // 	console.log(EdoMerge.merge3way({ base: baseStr, mine: mineStr, theirs: theirsStr }).join('\n'));
 // }
 

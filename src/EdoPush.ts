@@ -78,6 +78,10 @@ export class EdoPush {
 		let pushedKeys: any[] = [];
 
 		const asyncPushElement = async (element: string) => {
+			if (isNullOrUndefined(element)) {
+				console.error(`file '${element}' not in index... !!!ADD IMPLEMENTATION REQUIRED!!!`);
+				return; // file wasn't in index TODO: add action????
+			}
 			const tmpItem = fu.splitX(element, ',', 4);
 			if (tmpItem[0] != 'lsha1' && tmpItem[0] != tmpItem[1]) { // push only locally updated files
 				const key = await pushElement(setting.repoURL, stage, tmpItem[4], tmpItem[0], ccid, comment, tmpItem[2], pushHead);

@@ -133,24 +133,23 @@ export class FileUtils {
 		return this.writefile(this.edoDir + "/" + this.subMapFile, Buffer.from(output));
 	}
 
-	public static async writeEleList(filePath: string, eleList: any): Promise<void> {
-		// TODO: add check on already presented elements, if fingerprint was changed
-		// and according to that either delete remote-sha1 or keep it
+	public static async writeEleList(filePath: string, index_list: { [key: string]: string }): Promise<void> {
 		let output: string = "";
-		if (!await this.exists(".ele")) {
-			await this.mkdir(".ele"); // create directory (just in case)
+		if (!await FileUtils.exists(".ele")) {
+			await FileUtils.mkdir(".ele"); // create directory (just in case)
 		}
-		if (!isNullOrUndefined(eleList)) {
-			eleList.forEach((ele: IEleList) => {
-				// output += `${ele.typeName},${ele.fileExt},${ele.fingerprint},sha1,${ele.fullElmName}\n`; // add sha1 when pull
-				output += `lsha1,rsha1,${ele.fingerprint},${ele.fileExt},${ele.typeName}-${ele.fullElmName}\n`; // add sha1 when pull
-				this.touchfile(`.ele/${ele.fullElmName}.${ele.typeName}`);
-				// this.touchfile(`.typ/${ele.typeName}.${ele.fullElmName}`);
+		if (!isNullOrUndefined(index_list)) {
+			let index: string[] = Object.keys(index_list);
+			index.forEach((eleKey: string) => {
+				// lsha1,rsha1,fingerprint,hsha1,typeName-fullElmName (new version)
+				const elePart = FileUtils.splitX(eleKey, '-', 1);
+				output += `${index_list[eleKey]}\n`;
+				FileUtils.touchfile(`.ele/${elePart[1]}.${elePart[0]}`);
 			});
 			output = output.trimRight();
 		}
 
-		return this.writefile(filePath, Buffer.from(output));
+		return FileUtils.writefile(filePath, Buffer.from(output));
 	}
 
 	public static generalReadFile(path: string, binary: boolean = false, fileType?: string): Promise<string | Buffer> {
