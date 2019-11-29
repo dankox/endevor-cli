@@ -7,18 +7,18 @@ import path from 'path';
 import os from 'os';
 import { ISettings } from '../doc/ISettings';
 import { isNull, isNullOrUndefined } from 'util';
-import { IEleList } from '../doc/IEleList';
+import { HashUtils } from './HashUtils';
 
 
 function handleResult<T>(resolve: (result: T) => void, reject: (error: Error) => void, error: Error | null | undefined, result: T): void {
 	if (error) {
-		reject(massageError(error));
+		reject(messageError(error));
 	} else {
 		resolve(result);
 	}
 }
 
-function massageError(error: Error & { code?: string }): Error {
+function messageError(error: Error & { code?: string }): Error {
 	// if (error.code === 'ENOENT') {
 	// 	return new Error("File not found!");
 	// }
@@ -57,6 +57,7 @@ export interface IObject {
 export class FileUtils {
 	static readonly edoDir: string = ".edo";
 	static readonly objectDir: string = "objects";
+	static readonly refsDir: string = "refs";
 	static readonly configFile: string = "config";
 	static readonly stageMapFile: string = "stagemap";
 	static readonly sysMapFile: string = "sysmap";
@@ -65,99 +66,175 @@ export class FileUtils {
 	// static readonly remote: string = "remote";
 	static readonly stageFile: string = "STAGE";
 
-	public static async isNdvDir(): Promise<boolean> {
-		return this.exists(this.edoDir);
+	static cwdEdo: string = "./";
+
+	/**
+	 * Does .edo directory exists in current directory?
+	 */
+	public static async isEdoDir(): Promise<boolean> {
+		return FileUtils.exists(FileUtils.cwdEdo + FileUtils.edoDir);
 	}
 
 	/**
-	 * Get stage name (env-stgnum-sys-subsys)
+	 * Get .edo directory with root directory prefixed.
+	 *
+	 * setEdoDir() should be run first, to set path to .edo .
+	 * This is useful if you run it inside of directory and
+	 * .edo is few directories above.
 	 */
-	public static async getStage(): Promise<string> {
-		if (!await this.isNdvDir()) {
-			console.error("Not endevor repo directory!");
-			process.exit(1);
-		}
-		if (!await this.exists(`${this.edoDir}/${this.stageFile}`)) {
-			console.error("Not checked out stage!\nRun 'edo checkout <stage>' first.");
-			process.exit(1);
-		}
-
-		const buf: Buffer = await this.readfile(`${this.edoDir}/${this.stageFile}`);
-		return buf.toString();
+	public static getEdoDir(): string {
+		return FileUtils.cwdEdo + FileUtils.edoDir;
 	}
 
+	/**
+	 * Set path to .edo directory.
+	 *
+	 * Function tries to find .edo directory, if it doesn't
+	 * exist it checks directory above, etc.
+	 * Until it finds it and set the prefix directory to .edo
+	 * (../../)
+	 *
+	 * Use getEdoDir() to get the actual .edo directory for current run
+	 */
+	public static async setEdoDir() {
+		try {
+			if (await FileUtils.isEdoDir()) {
+				FileUtils.cwdEdo = path.normalize(FileUtils.cwdEdo); // TODO: check if works properly
+				return;
+			}
+		} catch (err) {
+			// error in path, reset to classic
+			FileUtils.cwdEdo = "./";
+			return;
+		}
+		FileUtils.cwdEdo += "../";
+		FileUtils.setEdoDir();
+	}
+
+	/**
+	 * Read STAGE and get sha1 for index or name if not existing
+	 */
+	public static async readStage(): Promise<string> {
+		if (!await FileUtils.isEdoDir()) {
+			// console.error("Not endevor repo directory!");
+			// process.exit(1);
+			throw new Error("Not endevor repo directory!");
+		}
+		if (!await FileUtils.exists(`${FileUtils.getEdoDir()}/${FileUtils.stageFile}`)) {
+			// console.error("Not checked out stage!\nRun 'edo checkout <stage>' first.");
+			// process.exit(1);
+			throw new Error("Not checked out stage!\nRun 'edo checkout <stage>' first.");
+		}
+
+		let fileStr: string = (await FileUtils.readFile(`${FileUtils.getEdoDir()}/${FileUtils.stageFile}`)).toString();
+		if (fileStr.trim().length == 0) {
+			throw new Error("STAGE file compromised! Do checkout to correct.");
+		}
+		// check if stage checked out by sha1 id
+		if (HashUtils.isSha1(fileStr)) {
+			return fileStr; // get back the sha1 of stage/index
+		}
+		// otherwise go to refs and find sha1
+		if (!await FileUtils.exists(`${FileUtils.getEdoDir()}/${FileUtils.refsDir}/${fileStr}`)) {
+			fileStr = (await FileUtils.readFile(`${FileUtils.getEdoDir()}/${FileUtils.refsDir}/${fileStr}`)).toString();
+		} else {
+			return fileStr; // return just name (no sha1)
+		}
+		// TODO: fix for tags??? not implemented but tag can point to stage not commit id (for better reference)
+		if (HashUtils.isSha1(fileStr)) {
+			return fileStr; // get back the sha1 of stage/index
+		}
+		throw new Error("Stage file doesn't contain sha1 of index! Try different checkout.");
+	}
+
+	/**
+	 * Read refs file (either location name, or tag) and get sha1 from it
+	 *
+	 * @param ref
+	 */
+	public static async readRefs(ref: string): Promise<string | null> {
+		if (!await FileUtils.exists(`${FileUtils.getEdoDir()}/${FileUtils.refsDir}/${ref}`)) {
+			return (await FileUtils.readFile(`${FileUtils.getEdoDir()}/${FileUtils.refsDir}/${ref}`)).toString();
+		} else {
+			return null;
+		}
+	}
+
+	/**
+	 * Read config file to get settings for Edo.
+	 *
+	 * This function returns ISettings object, which contains
+	 * repository URL and credentials.
+	 *
+	 * TODO: add some other settings like cmd for difftool, trim whitespace merge, etc.
+	 */
 	public static async readSettings(): Promise<ISettings> {
-		if (!await this.isNdvDir()) {
+		if (!await FileUtils.isEdoDir()) {
 			console.error("Not endevor repo directory!");
 			process.exit(1);
 		}
-		const buf: Buffer = await this.readfile(this.edoDir + "/" + this.configFile);
+		const buf: Buffer = await FileUtils.readFile(FileUtils.edoDir + "/" + FileUtils.configFile);
 		return JSON.parse(buf.toString());
 	}
 
+	/**
+	 * Write settings into config file.
+	 *
+	 * @param settings
+	 */
 	public static async writeSettings(settings: ISettings): Promise<void> {
-		if (!await this.isNdvDir()) {
-			await this.mkdir(this.edoDir);
+		if (!await FileUtils.isEdoDir()) {
+			await FileUtils.mkdir(FileUtils.getEdoDir());
 		}
-		return this.writefile(this.edoDir + "/" + this.configFile, Buffer.from(JSON.stringify(settings)));
+		return FileUtils.writeFile(FileUtils.getEdoDir() + "/" + FileUtils.configFile, Buffer.from(JSON.stringify(settings)));
 	}
 
-	public static async writeMap(map: any): Promise<void> {
-		let output: string = "";
-		map.forEach((stage: { envName: any; stgNum: any; nextEnv: any; nextStgNum: any; entryStg: any; }) => {
-			if (isNull(stage.nextEnv)) stage.nextEnv = "0";
-			if (isNull(stage.nextStgNum)) stage.nextStgNum = "0";
-			if (stage.entryStg)
-				stage.entryStg = "1";
-			else
-				stage.entryStg = "0";
+	/**
+	 * Read SHA1 file from object directory: .edo/objects/sha1(0,2)/sha1(2,..)
+	 *
+	 * Read the content and return object with type, length, all data
+	 * and offset where actual content starts.
+	 *
+	 * This is done, so it's possible to verify sha1sum if necessary.
+	 * (Maybe this should be done here?)
+	 *
+	 * @param sha1 file
+	 */
+	public static async readSha1file(sha1: string): Promise<IObject> {
+		let dirName = FileUtils.edoDir + '/' + FileUtils.objectDir + '/' + sha1.substr(0, 2);
+		let data: Buffer = await FileUtils.readFile(dirName + '/' + sha1.substring(2));
+		return new Promise<IObject>((resolve, reject) => {
+			const dataStart: number = data.indexOf('\0');
+			if (dataStart < 4) reject(`data compromised, '${sha1}' doesn't look like edo object!`);
 
-			output += `${stage.envName}-${stage.stgNum},${stage.nextEnv}-${stage.nextStgNum},${stage.entryStg}\n`;
+			let prefix: string = data.slice(0, dataStart).toString();
+			let type: string = prefix.substr(0,4);
+			let length: number = parseInt(prefix.substr(5), 10);
+			// data = data.slice(dataStart + 1);
+			let result: IObject = {
+				type: type,
+				length: length,
+				dataOffset: dataStart + 1, // start after /0
+				data: data
+			};
+			resolve(result);
 		});
-		output = output.trimRight();
-
-		return this.writefile(this.edoDir + "/" + this.stageMapFile, Buffer.from(output));
 	}
 
-	public static async writeSysMap(map: any): Promise<void> {
-		let output: string = "";
-		map.forEach((sys: { envName: any; stgSeqNum: any; sysName: any; nextSys: any; }) => {
-			output += `${sys.envName}-${sys.stgSeqNum}-${sys.sysName},${sys.nextSys}\n`;
-		});
-		output = output.trimRight();
-
-		return this.writefile(this.edoDir + "/" + this.sysMapFile, Buffer.from(output));
-	}
-
-	public static async writeSubMap(map: any): Promise<void> {
-		let output: string = "";
-		await this.rmrf('.map'); // clear location map before creating a new one
-		map.forEach((sub: { envName: any; stgSeqNum: any; sysName: any; sbsName: any; nextSbs: any; }) => {
-			output += `${sub.envName}-${sub.stgSeqNum}-${sub.sysName}-${sub.sbsName},${sub.nextSbs}\n`;
-			this.mkdir(`.map/${sub.envName}-${sub.stgSeqNum}/${sub.sysName}/${sub.sbsName}`);
-		});
-		output = output.trimRight();
-
-		return this.writefile(this.edoDir + "/" + this.subMapFile, Buffer.from(output));
-	}
-
-	public static async writeEleList(filePath: string, index_list: { [key: string]: string }): Promise<void> {
-		let output: string = "";
-		if (!await FileUtils.exists(".ele")) {
-			await FileUtils.mkdir(".ele"); // create directory (just in case)
+	/**
+	 * Write SHA1 file into object directory in format: .edo/objects/sha1(0,2)/sha1(2,..)
+	 *
+	 * @param sha1 file
+	 * @param content buffer
+	 */
+	public static async writeSha1file(sha1: string, content: Buffer): Promise<void> {
+		let dirName = FileUtils.edoDir + '/' + FileUtils.objectDir + '/' + sha1.substr(0, 2);
+		if (!await FileUtils.exists(dirName)) {
+			await FileUtils.mkdir(dirName);
 		}
-		if (!isNullOrUndefined(index_list)) {
-			let index: string[] = Object.keys(index_list);
-			index.forEach((eleKey: string) => {
-				// lsha1,rsha1,fingerprint,hsha1,typeName-fullElmName (new version)
-				const elePart = FileUtils.splitX(eleKey, '-', 1);
-				output += `${index_list[eleKey]}\n`;
-				FileUtils.touchfile(`.ele/${elePart[1]}.${elePart[0]}`);
-			});
-			output = output.trimRight();
-		}
-
-		return FileUtils.writefile(filePath, Buffer.from(output));
+		return new Promise<void>((resolve, reject) => {
+			fs.writeFile(dirName + '/' + sha1.substring(2), content, error => handleResult(resolve, reject, error, void 0));
+		});
 	}
 
 	public static generalReadFile(path: string, binary: boolean = false, fileType?: string): Promise<string | Buffer> {
@@ -173,90 +250,6 @@ export class FileUtils {
 				}
 			});
 		});
-	}
-
-	/**
-	 * Get list of elements from either element file or base element file in stage directory
-	 * @param stage
-	 */
-	public static async getEleListFromStage(sha1: string): Promise<{ [key: string]: string }> {
-		const self = this;
-		let keyIdx = 4;
-		return new Promise<{ [key: string]: string }>((resolve, reject) => {
-			try {
-				// const fileStream: fs.ReadStream = fs.createReadStream(this.edoDir + "/" + this.mapDir + "/" + stage + "/" + eleFile);
-				const fileStream: fs.ReadStream = fs.createReadStream(this.edoDir + "/" + this.objectDir + "/" + sha1);
-				fileStream.on('error', err => {
-					reject(err);
-				});
-				const rl = readline.createInterface({
-					input: fileStream,
-					crlfDelay: Infinity
-				});
-				let data: { [key: string]: string } = {};
-				rl.on('line', (line) => {
-					// lsha1,rsha1,fingerprint,fileExt,typeName-fullElmName
-					// sha1,fingerprint,typeName-fullElmName
-					const keyVal = self.splitX(line, ',', keyIdx);
-					data[keyVal[keyIdx]] = keyVal.join(',');
-				}).on('error', (err) => {
-					reject(err);
-				}).on('close', () => {
-					resolve(data);
-				});
-			} catch (err) {
-				reject(err);
-			}
-
-		});
-	}
-
-	/**
-	 * Get data from CSV file in format key: value, where key is the first
-	 * field in the row and value is the second,third,etc...
-	 *
-	 * @param fileName csv file inside of .endevor directory
-	 */
-	public static async getDataFromCSV(fileName: string): Promise<{ [key: string]: string }> {
-		return new Promise<{ [key: string]: string }>((resolve, reject) => {
-			try {
-				const fileStream: fs.ReadStream = fs.createReadStream(this.edoDir + "/" + fileName);
-				const rl = readline.createInterface({
-					input: fileStream,
-					crlfDelay: Infinity
-				});
-				let data: { [key: string]: string } = {};
-				rl.on('line', (line) => {
-					const keyVal = line.match(/([^,]+),(.+)/);
-					if (keyVal != null) {
-						data[keyVal[1]] = keyVal[2];
-					}
-				}).on('close', () => {
-					resolve(data);
-				});
-			} catch (err) {
-				reject(err);
-			}
-		});
-	}
-
-	/**
-	 * Split string n-times into array, with delimiter specified.
-	 *
-	 * Delimiter will be used n-times (count) to split the text.
-	 *
-	 * e.g: "test,hej,bla,bla" with 2 as count will be split
-	 * into ['test', 'hej', 'bla,bla']
-	 *
-	 * @param str text to split
-	 * @param delim delimiter to use for split
-	 * @param count number of split occuring on the text
-	 */
-	public static splitX(str: string, delim: string, count: number) {
-		let arr = str.split(delim);
-		let result = arr.splice(0, count);
-		result.push(arr.join(delim));
-		return result;
 	}
 
 	public static mkdir(path: string): Promise<void> {
@@ -291,8 +284,8 @@ export class FileUtils {
 
 	public static async copyFile(src: string, dest: string): Promise<void> {
 		let dirName = path.dirname(dest);
-		if (!await this.exists(dirName)) {
-			await this.mkdir(dirName);
+		if (!await FileUtils.exists(dirName)) {
+			await FileUtils.mkdir(dirName);
 		}
 
 		return new Promise<void>((resolve, reject) => {
@@ -336,7 +329,7 @@ export class FileUtils {
 		});
 	}
 
-	public static readfile(path: string, trimTrailSpace: boolean = false): Promise<Buffer> {
+	public static readFile(path: string, trimTrailSpace: boolean = false): Promise<Buffer> {
 		return new Promise<Buffer>((resolve, reject) => {
 			if (trimTrailSpace) {
 				fs.readFile(path, (error, buffer) => {
@@ -356,68 +349,20 @@ export class FileUtils {
 		});
 	}
 
-	/**
-	 * Read SHA1 file from object directory: .edo/objects/sha1(0,2)/sha1(2,..)
-	 *
-	 * Read the content and return object with type, length, all data
-	 * and offset where actual content starts.
-	 *
-	 * This is done, so it's possible to verify sha1sum if necessary.
-	 * (Maybe this should be done here?)
-	 *
-	 * @param sha1 file
-	 */
-	public static async readSha1file(sha1: string): Promise<IObject> {
-		let dirName = FileUtils.edoDir + '/' + FileUtils.objectDir + '/' + sha1.substr(0, 2);
-		let data: Buffer = await FileUtils.readfile(dirName + '/' + sha1.substring(2));
-		return new Promise<IObject>((resolve, reject) => {
-			const dataStart: number = data.indexOf('\0');
-			if (dataStart < 4) reject(`data compromised, '${sha1}' doesn't look like edo object!`);
-
-			let prefix: string = data.slice(0, dataStart).toString();
-			let type: string = prefix.substr(0,4);
-			let length: number = parseInt(prefix.substr(5), 10);
-			// data = data.slice(dataStart + 1);
-			let result: IObject = {
-				type: type,
-				length: length,
-				dataOffset: dataStart + 1, // start after /0
-				data: data
-			};
-			resolve(result);
-		});
-	}
-
-	/**
-	 * Write SHA1 file into object directory in format: .edo/objects/sha1(0,2)/sha1(2,..)
-	 *
-	 * @param sha1 file
-	 * @param content buffer
-	 */
-	public static async writeSha1file(sha1: string, content: Buffer): Promise<void> {
-		let dirName = FileUtils.edoDir + '/' + FileUtils.objectDir + '/' + sha1.substr(0, 2);
+	public static async writeFile(pathStr: string, content: Buffer): Promise<void> {
+		let dirName = path.dirname(pathStr);
 		if (!await FileUtils.exists(dirName)) {
 			await FileUtils.mkdir(dirName);
-		}
-		return new Promise<void>((resolve, reject) => {
-			fs.writeFile(dirName + '/' + sha1.substring(2), content, error => handleResult(resolve, reject, error, void 0));
-		});
-	}
-
-	public static async writefile(pathStr: string, content: Buffer): Promise<void> {
-		let dirName = path.dirname(pathStr);
-		if (!await this.exists(dirName)) {
-			await this.mkdir(dirName);
 		}
 		return new Promise<void>((resolve, reject) => {
 			fs.writeFile(pathStr, content, error => handleResult(resolve, reject, error, void 0));
 		});
 	}
 
-	public static async touchfile(path: string) {
+	public static async touchFile(path: string) {
 		try {
-			let fd: number = await this.gfsopen(path, "w");
-			await this.gfsclose(fd);
+			let fd: number = await FileUtils.gfsopen(path, "w");
+			await FileUtils.gfsclose(fd);
 		} catch (err) {
 			console.error("touch " + err);
 		}
@@ -426,7 +371,7 @@ export class FileUtils {
 	public static async createTempFile(content: Buffer) {
 		const name = 'edo-temp-' + Date.now() + '-' + process.pid + '-' + (Math.random() * 10000).toString(36);
 		const tmpPath = path.join(path.resolve(os.tmpdir()), name);
-		await FileUtils.writefile(tmpPath, content);
+		await FileUtils.writeFile(tmpPath, content);
 		return tmpPath;
 	}
 

@@ -6,6 +6,7 @@ import https from "https";
 import * as zlib from "zlib";
 import { IRestResponse } from "../doc/IRestResponse";
 import { isNullOrUndefined } from "util";
+import { ISettings } from "../../doc/ISettings";
 
 /**
  * Endevor Rest API functions
@@ -14,6 +15,14 @@ export class EndevorRestApi {
 	public static getAuthHeader(cred64: string): any {
 		const headers = {
 			"Authorization": "Basic " + cred64
+		};
+		return headers;
+	}
+
+	public static getJsonHeader(config: ISettings): any {
+		const headers = {
+			"Accept": "application/json",
+			...EndevorRestApi.getAuthHeader(config.cred64)
 		};
 		return headers;
 	}
@@ -50,7 +59,7 @@ export class EndevorRestApi {
 	 * @param headers used in the request
 	 */
 	public static async addElementHttp(url: string, file: string, ccid: string, comment: string, fingerprint: string, headers: any): Promise<IRestResponse> {
-		return new Promise<any>((resolve, reject) => {
+		return new Promise<IRestResponse>((resolve, reject) => {
 			let addForm = new FormData();
 			addForm.append("ccid", ccid);
 			addForm.append("comment", comment);

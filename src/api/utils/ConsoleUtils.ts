@@ -60,7 +60,7 @@ export class ConsoleUtils {
 		return ret;
 	}
 
-	public static async verifyCredentials(repoURL: string, user: string | null | undefined, pass: string | null | undefined, count: number = 1): Promise<string> {
+	public static async verifyCredentials(repoURL: string, user: string | undefined, pass: string | undefined, count: number = 1): Promise<string> {
 		// safeguard against blocking account
 		if (count >= 3) {
 			throw new Error("2 times failure, check you password and restart request!");
@@ -93,7 +93,7 @@ export class ConsoleUtils {
 			if (response.status != 200 && response.status != 206) {
 				if (response.status == 401) {
 					console.error("Invalid credentials!");
-					return this.verifyCredentials(repoURL, null, null, count + 1);
+					return this.verifyCredentials(repoURL, undefined, undefined, count + 1);
 				}
 				// console.error(response);
 				throw new Error("Credentials invalid!\n" + response.status);

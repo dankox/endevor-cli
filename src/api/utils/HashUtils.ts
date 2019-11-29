@@ -4,6 +4,10 @@ import * as fs from "fs";
 export class HashUtils {
 	static readonly algo = 'sha1';
 
+	public static isSha1(str: string) {
+		return (str.match(/\b([a-f0-9]{40})\b/) != null);
+	}
+
 	public static getHash(buf: Buffer) {
 		let hash = crypto.createHash(HashUtils.algo);
 		hash.update(buf);

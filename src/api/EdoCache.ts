@@ -1,15 +1,8 @@
-import * as fs from 'fs';
-import * as gfs from 'graceful-fs';
-import * as readline from 'readline';
-import mkdirp from 'mkdirp';
-import rimraf from 'rimraf';
-import path from 'path';
-import os from 'os';
-import { ISettings } from '../doc/ISettings';
 import { FileUtils as fu, IObject } from './utils/FileUtils';
-import { isNull, isNullOrUndefined } from 'util';
+import { isNullOrUndefined } from 'util';
 import { IEdoIndex } from './doc/IEdoIndex';
 import { HashUtils } from '../utils/HashUtils';
+import { CsvUtils } from './utils/CsvUtils';
 
 
 /**
@@ -52,9 +45,9 @@ export class EdoCache {
 			let eles: string[] = Object.keys(index.elem);
 			eles.forEach((eleKey: string) => {
 				// lsha1,rsha1,fingerprint,hsha1,typeName-fullElmName (new version)
-				const elePart = fu.splitX(eleKey, '-', 1);
+				const elePart = CsvUtils.splitX(eleKey, '-', 1);
 				output.push(`elem ${index.elem[eleKey]}`);
-				fu.touchfile(`.ele/${elePart[1]}.${elePart[0]}`);
+				fu.touchFile(`.ele/${elePart[1]}.${elePart[0]}`);
 			});
 		}
 		return EdoCache.addSha1Object(Buffer.from(output.join('\n')), EdoCache.OBJ_LIST);
@@ -75,7 +68,7 @@ export class EdoCache {
 		for (let line in data) {
 			if (line.startsWith("elem ")) {
 				// lsha1,rsha1,fingerprint,??print??,typeName-fullElmName
-				const keyVal = fu.splitX(line, ',', 4);
+				const keyVal = CsvUtils.splitX(line, ',', 4);
 				elem[keyVal[4]] = keyVal.join(',');
 			} else if (line.startsWith("prev ")) {
 				prev = line.substring(5).trimRight();
@@ -86,43 +79,6 @@ export class EdoCache {
 			}
 		}
 		return { prev: prev, stgn: stgn, type: type, elem: elem };
-	}
-
-	/**
-	 * Get list of elements from either element file or base element file in stage directory
-	 * @param stage
-	 * @param base
-	 */
-	public static async getEleListFromStage(stage: string): Promise<{ [key: string]: string }> {
-		const self = this;
-		let eleFile = this.index;
-		let keyIdx = 4;
-		return new Promise<{ [key: string]: string }>((resolve, reject) => {
-			try {
-				const fileStream: fs.ReadStream = fs.createReadStream(this.edoDir + "/" + this.mapDir + "/" + stage + "/" + eleFile);
-				fileStream.on('error', err => {
-					reject(err);
-				});
-				const rl = readline.createInterface({
-					input: fileStream,
-					crlfDelay: Infinity
-				});
-				let data: { [key: string]: string } = {};
-				rl.on('line', (line) => {
-					// lsha1,rsha1,fingerprint,fileExt,typeName-fullElmName
-					// sha1,fingerprint,typeName-fullElmName
-					const keyVal = fu.splitX(line, ',', keyIdx);
-					data[keyVal[keyIdx]] = keyVal.join(',');
-				}).on('error', (err) => {
-					reject(err);
-				}).on('close', () => {
-					resolve(data);
-				});
-			} catch (err) {
-				reject(err);
-			}
-
-		});
 	}
 
 	/**
@@ -173,6 +129,16 @@ export class EdoCache {
 		prefBuf.copy(tmpBuf);
 		buf.copy(tmpBuf, prefBuf.length);
 		return tmpBuf;
+	}
+
+	/**
+	 * Check Edo db for sha1 object, if it exists.
+	 *
+	 * @param sha1 object
+	 */
+	public static async sha1Exists(sha1: string): Promise<boolean> {
+		let dirName = fu.getEdoDir() + '/' + fu.objectDir + '/' + sha1.substr(0, 2);
+		return fu.exists(dirName + '/' + sha1.substring(2));
 	}
 
 }
