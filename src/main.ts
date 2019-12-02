@@ -3,7 +3,7 @@
 import yargs from 'yargs';
 import { EdoInit } from './cli/EdoInit';
 import { EdoFetch } from './EdoFetch';
-import { EdoCheckout } from './EdoCheckout';
+import { EdoCheckout } from './cli/EdoCheckout';
 import { EdoPull } from './EdoPull';
 import { EdoStatus } from './EdoStatus';
 import { EdoRestore } from './EdoRestore';
@@ -16,7 +16,7 @@ yargs.usage('Usage: $0 <command> [options]')
 	.scriptName('edo')
 	.command('init <url> [options]', 'Initialize local repo from remote url',
 		EdoInit.edoInitOptions, EdoInit.process)
-	.command('checkout <stage>', 'Checkout stage from local repo', EdoCheckout.edoCheckoutOptions, EdoCheckout.checkout)
+	.command('checkout <stage>', 'Checkout stage from local repo', EdoCheckout.edoCheckoutOptions, EdoCheckout.process)
 	.command('fetch [options]', 'Fetch list of elements for local stage', EdoFetch.ndvFetchOptions, EdoFetch.fetch)
 	.command('pull [file]', 'Get elements from the list to local stage', EdoPull.edoPullOptions, EdoPull.pull)
 	.command('push [file] [options]', 'Push elements from local stage to remote stage', EdoPush.edoPushOptions, EdoPush.push)

@@ -8,7 +8,7 @@ import { CsvUtils } from "./utils/CsvUtils";
 /**
  * Endevor checkout stage (on local)
  */
-export class EdoCheckout {
+export class EdoCheckoutApi {
 
 	/**
 	 * Checkout stage in edo.
@@ -26,7 +26,7 @@ export class EdoCheckout {
 		if (await fu.exists(`${fu.getEdoDir()}/${fu.stageFile}`)) {
 			let currentIndex = await fu.readStage();
 			// do only if indexSha1 is actually SHA1... for name, skip because it doesn't have index
-			if (EdoCache.sha1Exists(currentIndex)) {
+			if (await EdoCache.sha1Exists(currentIndex)) {
 				// get if exists...
 				let eleList: IEdoIndex = await EdoCache.readIndex(currentIndex);
 				let lines = Object.values(eleList.elem);

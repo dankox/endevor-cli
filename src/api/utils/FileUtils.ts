@@ -135,7 +135,7 @@ export class FileUtils {
 			return fileStr; // get back the sha1 of stage/index
 		}
 		// otherwise go to refs and find sha1
-		if (!await FileUtils.exists(`${FileUtils.getEdoDir()}/${FileUtils.refsDir}/${fileStr}`)) {
+		if (await FileUtils.exists(`${FileUtils.getEdoDir()}/${FileUtils.refsDir}/${fileStr}`)) {
 			fileStr = (await FileUtils.readFile(`${FileUtils.getEdoDir()}/${FileUtils.refsDir}/${fileStr}`)).toString();
 		} else {
 			return fileStr; // return just name (no sha1)
@@ -153,7 +153,7 @@ export class FileUtils {
 	 * @param ref
 	 */
 	public static async readRefs(ref: string): Promise<string | null> {
-		if (!await FileUtils.exists(`${FileUtils.getEdoDir()}/${FileUtils.refsDir}/${ref}`)) {
+		if (await FileUtils.exists(`${FileUtils.getEdoDir()}/${FileUtils.refsDir}/${ref}`)) {
 			return (await FileUtils.readFile(`${FileUtils.getEdoDir()}/${FileUtils.refsDir}/${ref}`)).toString();
 		} else {
 			return null;

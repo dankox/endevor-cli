@@ -9,6 +9,11 @@ import { FileUtils } from './FileUtils';
  */
 export class CsvUtils {
 
+	/**
+	 * Write stage map into a file in csv format
+	 *
+	 * @param map list of stages from rest api
+	 */
 	public static async writeMap(map: any): Promise<void> {
 		let output: string = "";
 		map.forEach((stage: { envName: any; stgNum: any; nextEnv: any; nextStgNum: any; entryStg: any; }) => {
@@ -26,6 +31,11 @@ export class CsvUtils {
 		return FileUtils.writeFile(FileUtils.getEdoDir() + "/" + FileUtils.stageMapFile, Buffer.from(output));
 	}
 
+	/**
+	 * Write system map into a file in csv format
+	 *
+	 * @param map list of system from rest api
+	 */
 	public static async writeSysMap(map: any): Promise<void> {
 		let output: string = "";
 		map.forEach((sys: { envName: any; stgSeqNum: any; sysName: any; nextSys: any; }) => {
@@ -36,6 +46,11 @@ export class CsvUtils {
 		return FileUtils.writeFile(FileUtils.getEdoDir() + "/" + FileUtils.sysMapFile, Buffer.from(output));
 	}
 
+	/**
+	 * Write subsystem map into a file in csv format
+	 *
+	 * @param map list of subsystem from rest api
+	 */
 	public static async writeSubMap(map: any): Promise<void> {
 		let output: string = "";
 		await FileUtils.rmrf('.map'); // clear location map before creating a new one

@@ -12,6 +12,12 @@ import { ISettings } from "../../doc/ISettings";
  * Endevor Rest API functions
  */
 export class EndevorRestApi {
+	/**
+	 * Get Authorization header from config.cred64 property.
+	 *
+	 * @param cred64 base64 encoded user:pass string (`ISettings.cred64`)
+	 * @returns header `{ Authorization: "Basic xxxx" }`
+	 */
 	public static getAuthHeader(cred64: string): any {
 		const headers = {
 			"Authorization": "Basic " + cred64
@@ -19,6 +25,12 @@ export class EndevorRestApi {
 		return headers;
 	}
 
+	/**
+	 * Get header object for running Endevor List Rest API requests.
+	 *
+	 * @param config `ISettings` obtained from config file.
+	 * @returns header object with `Accept` and `Authorization`.
+	 */
 	public static getJsonHeader(config: ISettings): any {
 		const headers = {
 			"Accept": "application/json",

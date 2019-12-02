@@ -36,6 +36,7 @@ export class EdoCache {
 		let output: string[] = [];
 		output.push(`prev ${index.prev}`); // TODO: autoupdate according to current stage
 		output.push(`stgn ${index.stgn}`);
+		output.push(`mesg ${index.mesg}`);
 		output.push(`type ${index.type}`);
 
 		if (!await fu.exists(".ele")) {
@@ -64,6 +65,7 @@ export class EdoCache {
 		let elem: { [key: string]: string } = {};
 		let prev = '0';
 		let stgn = '';
+		let mesg = '';
 		let type = '';
 		for (let line in data) {
 			if (line.startsWith("elem ")) {
@@ -74,11 +76,13 @@ export class EdoCache {
 				prev = line.substring(5).trimRight();
 			} else if (line.startsWith("stgn ")) {
 				stgn = line.substring(5).trimRight();
+			} else if (line.startsWith("mesg ")) {
+				mesg = line.substring(5).trimRight();
 			} else if (line.startsWith("type ")) {
 				type = line.substring(5).trimRight();
 			}
 		}
-		return { prev: prev, stgn: stgn, type: type, elem: elem };
+		return { prev: prev, stgn: stgn, mesg: mesg, type: type, elem: elem };
 	}
 
 	/**
