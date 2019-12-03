@@ -166,7 +166,7 @@ export class EdoFetchApi {
 
 		let typeStr: string[] = [];
 		for (const type of result) {
-			typeStr.push(`${type.typeName},${type.dataFm},${type.srcLgt}`);
+			typeStr.push(`${type.typeName},${type.dataFm},${parseInt(type.srcLgt)}`);
 		}
 		return EdoCache.addSha1Object(Buffer.from(typeStr.join('\n')), EdoCache.OBJ_TYPE);
 	}

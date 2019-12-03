@@ -10,15 +10,15 @@ import { EdoFetchApi } from "../api/EdoFetchApi";
 export class EdoFetch {
 	public static readonly listele: string = "env/*/stgnum/*/sys/*/subsys/*/type/*/ele";
 
-	private static readonly ndvFetchAllOption : yargs.Options = {
+	private static readonly edoFetchAllOption : yargs.Options = {
 		describe: 'Fetch all elements from the map',
 		demand: false,
 		boolean: true,
 		alias: 'a'
 	};
 
-	public static ndvFetchOptions = {
-		all: EdoFetch.ndvFetchAllOption
+	public static edoFetchOptions = {
+		all: EdoFetch.edoFetchAllOption
 	};
 
 
@@ -45,7 +45,3 @@ export class EdoFetch {
 		}
 	}
 }
-
-// Testing...
-// EdoFetch.process({ all: true });
-EdoFetch.process({});

@@ -1,7 +1,5 @@
 #!/usr/bin/env node
 
-import { EdoInit } from './EdoInit';
-import { EdoFetch } from './EdoFetch';
 import { isNullOrUndefined } from 'util';
 
 
