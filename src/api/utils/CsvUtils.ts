@@ -2,19 +2,55 @@ import * as fs from 'fs';
 import * as readline from 'readline';
 import { isNull } from 'util';
 import { FileUtils } from './FileUtils';
+import { HashUtils } from './HashUtils';
+import { EdoCache } from '../EdoCache';
 
 
 /**
- * CSV utilities for dealing with maps, element lists or generic csv data
+ * CSV utilities for dealing with maps, element/type lists or generic csv data
  */
 export class CsvUtils {
+
+	/**
+	 * Get map in array format, where first item is starting stage and
+	 * second is the next stage/subsystem, etc.
+	 *
+	 * If any error occurs, function will return empty map.
+	 *
+	 * @param startStage starting stage/subsystem (can be name or sha1)
+	 * @returns array of stage/subsystem location in map order
+	 */
+	public static async getMapArray(startStage: string): Promise<string[]> {
+		// check if stage is sha1? if so, get stage name from index
+		if (HashUtils.isSha1(startStage)) {
+			const index = await EdoCache.readIndex(startStage);
+			startStage = index.stgn;
+		}
+
+		let mapArray: string[] = [];
+		mapArray.push(startStage);
+
+		try {
+			let subMap = await CsvUtils.getDataFromCSV(FileUtils.subMapFile);
+			let stage = subMap[startStage].split(',')[0];
+			while (!stage.startsWith("0-0")) {
+				mapArray.push(stage);
+				stage = subMap[stage].split(',')[0];
+			}
+		} catch (err) {
+			// either startStage doesn't exist in submap, or problem while reading file
+			console.error("error while creating map array!");
+			return [];
+		}
+		return mapArray;
+	}
 
 	/**
 	 * Write stage map into a file in csv format
 	 *
 	 * @param map list of stages from rest api
 	 */
-	public static async writeMap(map: any): Promise<void> {
+	public static async writeStageMap(map: any): Promise<void> {
 		let output: string = "";
 		map.forEach((stage: { envName: any; stgNum: any; nextEnv: any; nextStgNum: any; entryStg: any; }) => {
 			if (isNull(stage.nextEnv)) stage.nextEnv = "0";
@@ -67,7 +103,7 @@ export class CsvUtils {
 	 * Get data from CSV file in format key: value, where key is the first
 	 * field in the row and value is the second,third,etc...
 	 *
-	 * @param fileName csv file inside of .endevor directory
+	 * @param fileName csv file inside of .edo directory
 	 */
 	public static async getDataFromCSV(fileName: string): Promise<{ [key: string]: string }> {
 		return new Promise<{ [key: string]: string }>((resolve, reject) => {
@@ -93,7 +129,39 @@ export class CsvUtils {
 	}
 
 	/**
-	 * Get file path from index linex
+	 * Get data for specific key from CSV file as string in format:
+	 * value = second-field,third-field,etc...
+	 *
+	 * example: line in subsystem map `dev-1-sys-sub,dev-2-sys-sub,1`
+	 * requested key `dev-1-sys-sub`, returned value `dev-2-sys-sub,1`
+	 *
+	 * @param fileName csv file inside of .edo directory
+	 */
+	public static async getKeyFromCSV(fileName: string, key: string): Promise<string> {
+		return new Promise<string>((resolve, reject) => {
+			try {
+				const fileStream: fs.ReadStream = fs.createReadStream(FileUtils.getEdoDir() + "/" + fileName);
+				const rl = readline.createInterface({
+					input: fileStream,
+					crlfDelay: Infinity
+				});
+				// let data: { [key: string]: string } = {};
+				rl.on('line', (line) => {
+					const keyVal = line.match(/([^,]+),(.+)/);
+					if (keyVal != null && keyVal[1] == key) {
+						resolve(keyVal[2]);
+					}
+				}).on('close', () => {
+					reject('key not found!');
+				});
+			} catch (err) {
+				reject(err);
+			}
+		});
+	}
+
+	/**
+	 * Get file path from index line
 	 *
 	 * @param line from index file `Object.values(IEdoIndex.elem)`
 	 */
@@ -105,7 +173,29 @@ export class CsvUtils {
 	}
 
 	/**
-	 * Get current sha1 from index linex.
+	 * Get fingerprint from index line
+	 *
+	 * @param line from index file `Object.values(IEdoIndex.elem)`
+	 */
+	public static getFingerprint(line: string): string {
+		let tmpItem = CsvUtils.splitX(line, ',', 4);  // lsha1,rsha1,fingerprint,fileExt,typeName-fullElmName
+		return tmpItem[2];
+	}
+
+	/**
+	 * Set fingerprint to index line
+	 *
+	 * @param line from index file `Object.values(IEdoIndex.elem)`
+	 * @param fingerprint new fingerprint which will be replaced in the index line
+	 */
+	public static setFingerprint(line: string, fingerprint: string): string {
+		let tmpItem = CsvUtils.splitX(line, ',', 4);  // lsha1,rsha1,fingerprint,fileExt,typeName-fullElmName
+		tmpItem[2] = fingerprint;
+		return tmpItem.join(',');
+	}
+
+	/**
+	 * Get current sha1 from index line.
 	 *
 	 * Current means the latest one, if there is local, it returns local.
 	 * If there isn't local, it returns remote, or null
@@ -124,7 +214,7 @@ export class CsvUtils {
 	}
 
 	/**
-	 * Get local sha1 from index linex
+	 * Get local sha1 from index line.
 	 *
 	 * If there is no local sha1, will return null
 	 *
@@ -142,7 +232,7 @@ export class CsvUtils {
 	}
 
 	/**
-	 * Get file path from index linex
+	 * Get file path from index line.
 	 *
 	 * If there is no local sha1, will return null
 	 *

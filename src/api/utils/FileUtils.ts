@@ -1,48 +1,15 @@
 import * as fs from 'fs';
 import * as gfs from 'graceful-fs';
-import * as readline from 'readline';
 import mkdirp from 'mkdirp';
 import rimraf from 'rimraf';
 import path from 'path';
 import os from 'os';
 import { ISettings } from '../doc/ISettings';
-import { isNull, isNullOrUndefined } from 'util';
 import { HashUtils } from './HashUtils';
 
 
-function handleResult<T>(resolve: (result: T) => void, reject: (error: Error) => void, error: Error | null | undefined, result: T): void {
-	if (error) {
-		reject(messageError(error));
-	} else {
-		resolve(result);
-	}
-}
-
-function messageError(error: Error & { code?: string }): Error {
-	// if (error.code === 'ENOENT') {
-	// 	return new Error("File not found!");
-	// }
-
-	// if (error.code === 'EISDIR') {
-	// 	return new Error("File is a directory!");
-	// 	// return vscode.FileSystemError.FileIsADirectory();
-	// }
-
-	// if (error.code === 'EEXIST') {
-	// 	return new Error("File exists!");
-	// 	// return vscode.FileSystemError.FileExists();
-	// }
-
-	// if (error.code === 'EPERM' || error.code === 'EACCESS') {
-	// 	return new Error("No permissions for access!");
-	// 	// return vscode.FileSystemError.NoPermissions();
-	// }
-
-	return error;
-}
-
 /**
- * Interface for Edo index file
+ * Interface for Edo sha1 object
  */
 export interface IObject {
 	type: string;
@@ -52,7 +19,9 @@ export interface IObject {
 }
 
 /**
- * File utilities
+ * File utilities for dealing with files only. For databse, use EdoCache class.
+ *
+ * Files: config, map, STAGE, refs, generic write/read of sha1
  */
 export class FileUtils {
 	static readonly edoDir: string = ".edo";
@@ -62,8 +31,6 @@ export class FileUtils {
 	static readonly stageMapFile: string = "stagemap";
 	static readonly sysMapFile: string = "sysmap";
 	static readonly subMapFile: string = "submap";
-	// static readonly eleBaseIdx: string = "local_base";
-	// static readonly remote: string = "remote";
 	static readonly stageFile: string = "STAGE";
 
 	static cwdEdo: string = "./";
@@ -116,13 +83,9 @@ export class FileUtils {
 	 */
 	public static async readStage(): Promise<string> {
 		if (!await FileUtils.isEdoDir()) {
-			// console.error("Not endevor repo directory!");
-			// process.exit(1);
 			throw new Error("Not endevor repo directory!");
 		}
 		if (!await FileUtils.exists(`${FileUtils.getEdoDir()}/${FileUtils.stageFile}`)) {
-			// console.error("Not checked out stage!\nRun 'edo checkout <stage>' first.");
-			// process.exit(1);
 			throw new Error("Not checked out stage!\nRun 'edo checkout <stage>' first.");
 		}
 
@@ -161,6 +124,15 @@ export class FileUtils {
 	}
 
 	/**
+	 * Write refs file (either location name, or tag) and put sha1 of new index in it
+	 *
+	 * @param ref
+	 */
+	public static async writeRefs(ref: string, sha1: string): Promise<void> {
+		return FileUtils.writeFile(`${FileUtils.getEdoDir()}/${FileUtils.refsDir}/${ref}`, Buffer.from(sha1));
+	}
+
+	/**
 	 * Read config file to get settings for Edo.
 	 *
 	 * This function returns ISettings object, which contains
@@ -170,8 +142,7 @@ export class FileUtils {
 	 */
 	public static async readSettings(): Promise<ISettings> {
 		if (!await FileUtils.isEdoDir()) {
-			console.error("Not endevor repo directory!");
-			process.exit(1);
+			throw new Error("Not endevor repo directory!");
 		}
 		const buf: Buffer = await FileUtils.readFile(FileUtils.edoDir + "/" + FileUtils.configFile);
 		return JSON.parse(buf.toString());
@@ -233,7 +204,7 @@ export class FileUtils {
 			await FileUtils.mkdir(dirName);
 		}
 		return new Promise<void>((resolve, reject) => {
-			fs.writeFile(dirName + '/' + sha1.substring(2), content, error => handleResult(resolve, reject, error, void 0));
+			fs.writeFile(dirName + '/' + sha1.substring(2), content, error => FileUtils.handleResult(resolve, reject, error, void 0));
 		});
 	}
 
@@ -254,31 +225,31 @@ export class FileUtils {
 
 	public static mkdir(path: string): Promise<void> {
 		return new Promise<void>((resolve, reject) => {
-			mkdirp(path, error => handleResult(resolve, reject, error, void 0));
+			mkdirp(path, error => FileUtils.handleResult(resolve, reject, error, void 0));
 		});
 	}
 
 	public static exists(path: string): Promise<boolean> {
 		return new Promise<boolean>((resolve, reject) => {
-			fs.exists(path, exists => handleResult(resolve, reject, null, exists));
+			fs.exists(path, exists => FileUtils.handleResult(resolve, reject, null, exists));
 		});
 	}
 
 	public static unlink(path: string): Promise<boolean> {
 		return new Promise<boolean>((resolve, reject) => {
-			fs.unlink(path, error => handleResult(resolve, reject, error, void 0));
+			fs.unlink(path, error => FileUtils.handleResult(resolve, reject, error, void 0));
 		});
 	}
 
 	public static rmdir(path: string): Promise<boolean> {
 		return new Promise<boolean>((resolve, reject) => {
-			fs.rmdir(path, error => handleResult(resolve, reject, error, void 0));
+			fs.rmdir(path, error => FileUtils.handleResult(resolve, reject, error, void 0));
 		});
 	}
 
 	public static rmrf(path: string): Promise<void> {
 		return new Promise<void>((resolve, reject) => {
-			rimraf(path, error => handleResult(resolve, reject, error, void 0));
+			rimraf(path, error => FileUtils.handleResult(resolve, reject, error, void 0));
 		});
 	}
 
@@ -289,43 +260,43 @@ export class FileUtils {
 		}
 
 		return new Promise<void>((resolve, reject) => {
-			fs.copyFile(src, dest, error => handleResult(resolve, reject, error, void 0));
+			fs.copyFile(src, dest, error => FileUtils.handleResult(resolve, reject, error, void 0));
 		});
 	}
 
 	public static readdir(path: string): Promise<string[]> {
 		return new Promise<string[]>((resolve, reject) => {
-			fs.readdir(path, (error, children) => handleResult(resolve, reject, error, children));
+			fs.readdir(path, (error, children) => FileUtils.handleResult(resolve, reject, error, children));
 		});
 	}
 
 	public static stat(path: string): Promise<fs.Stats> {
 		return new Promise<fs.Stats>((resolve, reject) => {
-			fs.stat(path, (error, stat) => handleResult(resolve, reject, error, stat));
+			fs.stat(path, (error, stat) => FileUtils.handleResult(resolve, reject, error, stat));
 		});
 	}
 
 	public static open(path: string, flags: string): Promise<number> {
 		return new Promise<number>((resolve, reject) => {
-			fs.open(path, flags, (error, fd) => handleResult(resolve, reject, error, fd));
+			fs.open(path, flags, (error, fd) => FileUtils.handleResult(resolve, reject, error, fd));
 		});
 	}
 
 	public static close(fd: number): Promise<void> {
 		return new Promise<void>((resolve, reject) => {
-			fs.close(fd, (error) => handleResult(resolve, reject, error, void 0));
+			fs.close(fd, (error) => FileUtils.handleResult(resolve, reject, error, void 0));
 		});
 	}
 
 	public static gfsopen(path: string, flags: string): Promise<number> {
 		return new Promise<number>((resolve, reject) => {
-			gfs.open(path, flags, (error, fd) => handleResult(resolve, reject, error, fd));
+			gfs.open(path, flags, (error, fd) => FileUtils.handleResult(resolve, reject, error, fd));
 		});
 	}
 
 	public static gfsclose(fd: number): Promise<void> {
 		return new Promise<void>((resolve, reject) => {
-			gfs.close(fd, (error) => handleResult(resolve, reject, error, void 0));
+			gfs.close(fd, (error) => FileUtils.handleResult(resolve, reject, error, void 0));
 		});
 	}
 
@@ -334,17 +305,17 @@ export class FileUtils {
 			if (trimTrailSpace) {
 				fs.readFile(path, (error, buffer) => {
 					if (error) {
-						return handleResult(resolve, reject, error, void 0);
+						return FileUtils.handleResult(resolve, reject, error, void 0);
 					}
 					let lines: string[] = buffer.toString().split('\n');
 					let output: string[] = [];
 					for (let line of lines) {
 						output.push(line.trimRight());
 					}
-					return handleResult(resolve, reject, error, Buffer.from(output.join('\n')));
+					return FileUtils.handleResult(resolve, reject, error, Buffer.from(output.join('\n')));
 				});
 			} else {
-				fs.readFile(path, (error, buffer) => handleResult(resolve, reject, error, buffer));
+				fs.readFile(path, (error, buffer) => FileUtils.handleResult(resolve, reject, error, buffer));
 			}
 		});
 	}
@@ -355,7 +326,7 @@ export class FileUtils {
 			await FileUtils.mkdir(dirName);
 		}
 		return new Promise<void>((resolve, reject) => {
-			fs.writeFile(pathStr, content, error => handleResult(resolve, reject, error, void 0));
+			fs.writeFile(pathStr, content, error => FileUtils.handleResult(resolve, reject, error, void 0));
 		});
 	}
 
@@ -374,5 +345,38 @@ export class FileUtils {
 		await FileUtils.writeFile(tmpPath, content);
 		return tmpPath;
 	}
+
+
+	public static handleResult<T>(resolve: (result: T) => void, reject: (error: Error) => void, error: Error | null | undefined, result: T): void {
+		if (error) {
+			reject(FileUtils.messageError(error));
+		} else {
+			resolve(result);
+		}
+	}
+
+	public static messageError(error: Error & { code?: string }): Error {
+		// if (error.code === 'ENOENT') {
+		// 	return new Error("File not found!");
+		// }
+
+		// if (error.code === 'EISDIR') {
+		// 	return new Error("File is a directory!");
+		// 	// return vscode.FileSystemError.FileIsADirectory();
+		// }
+
+		// if (error.code === 'EEXIST') {
+		// 	return new Error("File exists!");
+		// 	// return vscode.FileSystemError.FileExists();
+		// }
+
+		// if (error.code === 'EPERM' || error.code === 'EACCESS') {
+		// 	return new Error("No permissions for access!");
+		// 	// return vscode.FileSystemError.NoPermissions();
+		// }
+
+		return error;
+	}
+
 
 }

@@ -1,112 +1,160 @@
-import yargs from "yargs";
-import { FileUtils as fu } from "./utils/FileUtils";
+import { FileUtils } from "./utils/FileUtils";
 import { ISettings } from "./doc/ISettings";
 import { EndevorRestApi } from "./utils/EndevorRestApi";
 import { isNullOrUndefined } from "util";
 import { IRestResponse } from "./doc/IRestResponse";
 import { IEleList } from "./doc/IEleList";
+import { CsvUtils } from "./utils/CsvUtils";
+import { EdoCache } from "./EdoCache";
+import { IEdoIndex, EdoIndex } from "./doc/IEdoIndex";
+import { HashUtils } from "./utils/HashUtils";
 
 /**
  * Endevor fetch remote stage to local
  */
 export class EdoFetchApi {
-	public static readonly listele: string = "env/*/stgnum/*/sys/*/subsys/*/type/*/ele";
+	static readonly listele: string = "env/*/stgnum/*/sys/*/subsys/*/type/*/ele";
 
-	private static readonly ndvFetchAllOption : yargs.Options = {
-		describe: 'Fetch all elements from the map',
-		demand: false,
-		boolean: true,
-		alias: 'a'
-	};
+	/**
+	 * Fetch elements/types for stage and config specified in parameters.
+	 * Populates index file and store it in edo database.
+	 * Updates refs file with up-to-date index sha1.
+	 *
+	 * @param config ISettings with repo URL and credentials
+	 * @param stage name or sha1 to fetch. If sha1, stage name will be used from
+	 * already existed index (referenced by sha1 id).
+	 */
+	public static async fetchStage(config: ISettings, stage: string) {
+		let index: IEdoIndex | null = null;
+		let indexSha1: string | null = null;
+		// if sha1, grab stage name from index file
+		if (HashUtils.isSha1(stage)) {
+			indexSha1 = stage;
+			index = await EdoCache.readIndex(stage);
+			stage = index.stgn;
+		}
+		// get element list and fetch types to database
+		let [ eles, typeSha1 ] = await Promise.all([
+			// get list for index from remote
+			EdoFetchApi.getElementList(config, stage),
+			// fetch list of types
+			EdoFetchApi.fetchTypes(config, stage)
+		]);
 
-	public static ndvFetchOptions = {
-		all: EdoFetchApi.ndvFetchAllOption
-	};
+		let index_list: { [key: string]: string } = {};
+		// read index to load index_list (if not read before)
+		if (isNullOrUndefined(index)) {
+			try {
+				// get sha1 from refs
+				indexSha1 = await FileUtils.readRefs(stage);
+				// if exists read index and get list of elements
+				if (indexSha1 != null) {
+					index = await EdoCache.readIndex(indexSha1);
+					index_list = index.elem;
+					index.prev = indexSha1;
+				} else {
+					index = EdoIndex.init(stage);
+				}
+			} catch (err) {
+				// don't care, list remains empty
+				index = EdoIndex.init(stage);
+			}
+		} else {
+			// get index_list from loaded index
+			index_list = index.elem;
+		}
+		index.type = typeSha1;
+		index.stat = EdoIndex.STAT_FETCHED; // set status to 'fetched'
+
+		if (!isNullOrUndefined(eles)) {
+			eles.forEach((ele: IEleList) => {
+				// CSV line: `lsha1,rsha1,${ele.fingerprint},history_sha1,${ele.typeName}-${ele.fullElmName}\n`; // new format
+				const key = `${ele.typeName}-${ele.fullElmName}`;
+				if (!isNullOrUndefined(index_list[key])) {
+					let tmpItem = CsvUtils.splitX(index_list[key], ',', 4); // lsha1,rsha1,fingerprint,hsha1,typeName-fullElmName (new version)
+					if (tmpItem[2] != ele.fingerprint) {
+						tmpItem[2] = "null"; // nullify fingerprint for pull (it pulls only null fingerprint)
+						index_list[key] = tmpItem.join(','); // update index list
+					}
+				} else {
+					// for non-existent index key, create new one
+					index_list[key] = `lsha1,rsha1,null,null,${key}`;
+				}
+			});
+			index.elem = index_list;
+			console.log(`writing index for ${stage}...`);
+			indexSha1 = await EdoCache.writeIndex(index);
+			if (indexSha1 != null) FileUtils.writeRefs(stage, indexSha1); // update refs
+			console.log(`fetch of ${stage} done!`);
+		} else {
+			// TODO: do I care? if there are no elements, nothing to update... or maybe delete ???
+			console.error("no elements fetched!");
+		}
+	}
 
 
 	/**
+	 * Get element list for stage(subsystem) from Endevor repo specified in config file.
 	 *
-	 * @param argv
+	 * @param config ISettings from config file
+	 * @param stage string in format 'env-stgnum-system-subsystem'
+	 * @returns list of object containing element information from /ele endpoint
 	 */
-	public static async fetch(argv: any) {
-		// stage in array [ env, stgnum, sys, sub ]
-		let setting: ISettings = await fu.readSettings();
-		let stageDir = await fu.getStage();
-		// let stageDir = (await fu.readfile(`${fu.edoDir}/${fu.stageFile}`)).toString()
+	public static async getElementList(config: ISettings, stage: string): Promise<any[]> {
+		let stageParts = stage.split('-');
+		let listHead = EndevorRestApi.getJsonHeader(config);
+		const listEle = `env/${stageParts[0]}/stgnum/${stageParts[1]}/sys/${stageParts[2]}/subsys/${stageParts[3]}/type/*/ele?data=BAS`; // basic is enough
 
-		// set header (auth and accept)
-		let authHead = EndevorRestApi.getAuthHeader(setting.cred64);
-		let listHead = {
-			"Accept": "application/json",
-			...authHead
-		};
-
-		let stageArr: string[] = [];
-		stageArr.push(stageDir);
-
-		if (argv.all) {
-			let subMap = await fu.getDataFromCSV(fu.subMapFile);
-			stageDir = subMap[stageDir].split(',')[0];
-			while (!stageDir.startsWith("0-0")) {
-				stageArr.push(stageDir);
-				stageDir = subMap[stageDir].split(',')[0];
-			}
-			await fu.rmrf(".ele");
-		}
-
-		const asyncGetElements = async (stageItem: string) => {
-			let stage = stageItem.split('-');
-			const listEle = `env/${stage[0]}/stgnum/${stage[1]}/sys/${stage[2]}/subsys/${stage[3]}/type/*/ele?data=BAS`; // basic is enough
-			console.log(`getting list for ${stageItem}...`);
-			let eles = await getElementList(setting.repoURL + listEle, listHead); // get list for index from remote
-			let index_list: { [key: string]: string } = {};
+		console.log(`getting element list for ${stage}...`);
+		try {
+			const response: IRestResponse = await EndevorRestApi.getHttp(config.repoURL + listEle, listHead);
+			console.log("element list obtained...");
+			let resBody;
 			try {
-				index_list = await fu.getEleListFromStage(stageItem); // get local index (for comparision)
+				resBody = JSON.parse(response.body);
 			} catch (err) {
-				// don't care, list remains empty
+				throw new Error("element json parsing error: " + err);
 			}
-			if (!isNullOrUndefined(eles)) {
-				eles.forEach((ele: IEleList) => {
-					// CSV line: `lsha1,rsha1,${ele.fingerprint},${ele.fileExt},${ele.typeName}-${ele.fullElmName}\n`; // old format
-					// CSV line: `lsha1,rsha1,${ele.fingerprint},history_sha1,${ele.typeName}-${ele.fullElmName}\n`; // new format
-					const key = `${ele.typeName}-${ele.fullElmName}`;
-					if (!isNullOrUndefined(index_list[key])) {
-						let tmpItem = fu.splitX(index_list[key], ',', 4); // lsha1,rsha1,fingerprint,hsha1,typeName-fullElmName (new version)
-						if (tmpItem[2] != ele.fingerprint) {
-							tmpItem[2] = "null"; // nullify fingerprint for pull (it pulls only null fingerprint)
-							index_list[key] = tmpItem.join(','); // update index list
-						}
-					} else {
-						// for non-existent index key, create new one
-						index_list[key] = `lsha1,rsha1,null,null,${key}`;
-					}
-				});
-				console.log(`writing list for ${stageItem}...`);
-				return fu.writeEleList(`${fu.edoDir}/${fu.mapDir}/${stageItem}/${fu.index}`, index_list);
-			} else {
-				console.error("list not returned!");
+			if (!isNullOrUndefined(response.status) && response.status > 300 ) {
+				throw new Error(`Error obtaining element list for stage '${stage}':\n${resBody.messages}`);
 			}
-		};
-		await Promise.all(stageArr.map(item => asyncGetElements(item)));
-
-		console.log("fetch done!");
+			let result = resBody.data;
+			if (!isNullOrUndefined(result)) {
+				if (isNullOrUndefined(result[0])) {
+					result = [];
+					result[0] = resBody.data;
+				}
+			}
+			return result;
+		} catch (err) {
+			throw new Error(`Exception when obtaining element list for stage '${stage}':\n${err}`);
+		}
 	}
-}
 
-async function getElementList(eleURL:string, headers: any): Promise<any[] | null> {
-	try {
-		const response: IRestResponse = await EndevorRestApi.getHttp(eleURL, headers);
-		console.log("list obtained...");
+	/**
+	 * Fetch list of types for stage(subsystem) from Endevor repo specified in config file.
+	 * Store it in database and return sha1 id of it.
+	 *
+	 * @param config ISettings from config file
+	 * @param stage string in format 'env-stgnum-system-subsystem'
+	 * @returns sha1 of object containing list of types
+	 */
+	public static async fetchTypes(config: ISettings, stage: string): Promise<string> {
+		let stageParts = stage.split('-');
+		let listHead = EndevorRestApi.getJsonHeader(config);
+		const listType = `env/${stageParts[0]}/stgnum/${stageParts[1]}/sys/${stageParts[2]}/type`;
+
+		console.log(`getting type list for ${stage}...`);
+		const response: IRestResponse = await EndevorRestApi.getHttp(config.repoURL + listType, listHead);
+		console.log("type list obtained...");
 		let resBody;
 		try {
 			resBody = JSON.parse(response.body);
 		} catch (err) {
-			console.error("json parsing error: " + err);
-			return null;
+			throw new Error("type json parsing error: " + err);
 		}
 		if (!isNullOrUndefined(response.status) && response.status > 300 ) {
-			console.error(`Error obtaining element list from url '${eleURL}':\n${resBody.messages}`);
-			return null;
+			throw new Error(`Error obtaining type list for stage '${stage}':\n${resBody.messages}`);
 		}
 		let result = resBody.data;
 		if (!isNullOrUndefined(result)) {
@@ -115,12 +163,11 @@ async function getElementList(eleURL:string, headers: any): Promise<any[] | null
 				result[0] = resBody.data;
 			}
 		}
-		return result;
-	} catch (err) {
-		console.error(`Exception when obtaining element list from url '${eleURL}':\n${err}`);
-		return null;
+
+		let typeStr: string[] = [];
+		for (const type of result) {
+			typeStr.push(`${type.typeName},${type.dataFm},${type.srcLgt}`);
+		}
+		return EdoCache.addSha1Object(Buffer.from(typeStr.join('\n')), EdoCache.OBJ_TYPE);
 	}
 }
-
-// Testing...
-// NdvFetch.fetch({ all: true });

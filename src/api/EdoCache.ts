@@ -6,21 +6,13 @@ import { CsvUtils } from './utils/CsvUtils';
 
 
 /**
- * File utilities
+ * Edo Cache utility class. Handling Edo database access:
+ *
+ * - write/read of index files
+ * - write/read of sha1 objects of types
+ * - check if sha1 object exists in databse
  */
 export class EdoCache {
-	static readonly edoDir: string = ".edo";
-	static readonly objectDir: string = "objects";
-	static readonly configFile: string = "config";
-	static readonly stageMapFile: string = "stagemap";
-	static readonly sysMapFile: string = "sysmap";
-	static readonly subMapFile: string = "submap";
-	static readonly index: string = "index"; // TODO: remove
-	static readonly mapDir: string = "map"; // TODO: remove
-	// static readonly eleBaseIdx: string = "local_base";
-	// static readonly remote: string = "remote";
-	static readonly stageFile: string = "STAGE";
-
 	static readonly OBJ_LIST: string = "list";
 	static readonly OBJ_BLOB: string = "blob";
 	static readonly OBJ_TYPE: string = "type";
@@ -29,6 +21,7 @@ export class EdoCache {
 	 * Write index file into edo db (.edo/objects/sha1) and return sha1
 	 *
 	 * @param index object containing the list, stage name and type list
+	 * @returns sha1 of stored index or null if index is null
 	 */
 	public static async writeIndex(index: IEdoIndex): Promise<string | null> {
 		if (isNullOrUndefined(index)) return null;
@@ -36,6 +29,7 @@ export class EdoCache {
 		let output: string[] = [];
 		output.push(`prev ${index.prev}`); // TODO: autoupdate according to current stage
 		output.push(`stgn ${index.stgn}`);
+		output.push(`stat ${index.stat}`);
 		output.push(`mesg ${index.mesg}`);
 		output.push(`type ${index.type}`);
 
@@ -63,11 +57,12 @@ export class EdoCache {
 		let buf: Buffer = await EdoCache.getSha1Object(sha1, EdoCache.OBJ_LIST);
 		const data: string[] = buf.toString().split('\n');
 		let elem: { [key: string]: string } = {};
-		let prev = '0';
+		let prev = 'null';
 		let stgn = '';
+		let stat = '';
 		let mesg = '';
 		let type = '';
-		for (let line in data) {
+		for (const line of data) {
 			if (line.startsWith("elem ")) {
 				// lsha1,rsha1,fingerprint,??print??,typeName-fullElmName
 				const keyVal = CsvUtils.splitX(line, ',', 4);
@@ -76,13 +71,15 @@ export class EdoCache {
 				prev = line.substring(5).trimRight();
 			} else if (line.startsWith("stgn ")) {
 				stgn = line.substring(5).trimRight();
+			} else if (line.startsWith("stat ")) {
+				stat = line.substring(5).trimRight();
 			} else if (line.startsWith("mesg ")) {
 				mesg = line.substring(5).trimRight();
 			} else if (line.startsWith("type ")) {
 				type = line.substring(5).trimRight();
 			}
 		}
-		return { prev: prev, stgn: stgn, mesg: mesg, type: type, elem: elem };
+		return { prev: prev, stgn: stgn, stat: stat, mesg: mesg, type: type, elem: elem };
 	}
 
 	/**
@@ -146,8 +143,3 @@ export class EdoCache {
 	}
 
 }
-
-// Test
-// let buf: Buffer = EdoCache.getObjectBuffer(Buffer.from("Hello World!\n how are you ;) \n"), EdoCache.OBJ_BLOB);
-// console.log(buf.toString('hex'));
-// console.log(buf.toString());

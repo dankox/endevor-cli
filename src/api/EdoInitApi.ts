@@ -103,7 +103,7 @@ export class EdoInitApi {
 			throw new Error(`Error obtaining map:\n${resBody.messages}`);
 		}
 		console.log("writing repo map...");
-		await CsvUtils.writeMap(resBody.data);
+		await CsvUtils.writeStageMap(resBody.data);
 	}
 
 	/**
