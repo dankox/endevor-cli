@@ -18,7 +18,9 @@ export class EdoCache {
 	static readonly OBJ_TYPE: string = "type";
 
 	/**
-	 * Write index file into edo db (.edo/objects/sha1) and return sha1
+	 * Write index file into edo db `.edo/objects/sha1` and return sha1.
+	 *
+	 * During run, creates helper for element names in `.ele/` directory.
 	 *
 	 * @param index object containing the list, stage name and type list
 	 * @returns sha1 of stored index or null if index is null
@@ -65,7 +67,7 @@ export class EdoCache {
 		for (const line of data) {
 			if (line.startsWith("elem ")) {
 				// lsha1,rsha1,fingerprint,??print??,typeName-fullElmName
-				const keyVal = CsvUtils.splitX(line, ',', 4);
+				const keyVal = CsvUtils.splitX(line.substring(5).trimRight(), ',', 4);
 				elem[keyVal[4]] = keyVal.join(',');
 			} else if (line.startsWith("prev ")) {
 				prev = line.substring(5).trimRight();

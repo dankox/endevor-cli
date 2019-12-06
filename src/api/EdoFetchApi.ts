@@ -33,11 +33,10 @@ export class EdoFetchApi {
 			index = await EdoCache.readIndex(stage);
 			stage = index.stgn;
 		}
+
 		// get element list and fetch types to database
 		let [ eles, typeSha1 ] = await Promise.all([
-			// get list for index from remote
 			EdoFetchApi.getElementList(config, stage),
-			// fetch list of types
 			EdoFetchApi.fetchTypes(config, stage)
 		]);
 
