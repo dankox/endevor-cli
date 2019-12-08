@@ -40,6 +40,20 @@ export class EndevorRestApi {
 	}
 
 	/**
+	 * Get header object for running Endevor Retrieve Rest API requests.
+	 *
+	 * @param config `ISettings` obtained from config file.
+	 * @returns header object with `Accept` and `Authorization`.
+	 */
+	public static getBinaryHeader(config: ISettings): any {
+		const headers = {
+			"Accept": "application/octet-stream",
+			...EndevorRestApi.getAuthHeader(config.cred64)
+		};
+		return headers;
+	}
+
+	/**
 	 * GET HTTP request done thru nodejs http/https module which returns Promise (IRestResponse)
 	 *
 	 * @param url full URL which is requested (e.g.: http://localhost:8080/example/link)

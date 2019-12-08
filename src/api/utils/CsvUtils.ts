@@ -167,9 +167,9 @@ export class CsvUtils {
 	 */
 	public static getFilePath(line: string): string {
 		let tmpItem = CsvUtils.splitX(line, ',', 4);  // lsha1,rsha1,fingerprint,fileExt,typeName-fullElmName
-		let eleParts = CsvUtils.splitX(tmpItem[4], '-', 1);
-		let file = `${FileUtils.cwdEdo}${eleParts[0]}/${eleParts[1]}`;
-		return file;
+		let file = `${FileUtils.cwdEdo}${tmpItem[4]}`;
+		return tmpItem[4];
+		// return file; // TODO: not sure about this... should be relative path or just type/elemname?
 	}
 
 	/**

@@ -1,4 +1,4 @@
-import { FileUtils as fu } from "./utils/FileUtils";
+import { FileUtils } from "./utils/FileUtils";
 import { HashUtils as hash } from "./utils/HashUtils";
 import { isNullOrUndefined } from "util";
 import { EdoCache } from "./EdoCache";
@@ -17,14 +17,14 @@ export class EdoCheckoutApi {
 	 */
 	public static async checkout(stage: string) {
 		// verify if valid stage
-		let subMap: {[key: string]: string} = await CsvUtils.getDataFromCSV(fu.subMapFile);
+		let subMap: {[key: string]: string} = await CsvUtils.getDataFromCSV(FileUtils.subMapFile);
 		if (isNullOrUndefined(subMap[stage])) {
 			throw new Error(`Stage '${stage}' is not found! Verify if you wrote it correctly.`);
 		}
 
 		// check if currently checked out stage (and remove from work dir)
-		if (await fu.exists(`${fu.getEdoDir()}/${fu.stageFile}`)) {
-			let currentIndex = await fu.readStage();
+		if (await FileUtils.exists(`${FileUtils.getEdoDir()}/${FileUtils.stageFile}`)) {
+			let currentIndex = await FileUtils.readStage();
 			// do only if indexSha1 is actually SHA1... for name, skip because it doesn't have index
 			if (await EdoCache.sha1Exists(currentIndex)) {
 				// get if exists...
@@ -37,9 +37,9 @@ export class EdoCheckoutApi {
 				// walk thru elements and check if can be removed
 				for (let item of lines) {
 					let tmpItem = CsvUtils.splitX(item, ',', 4);
-					let eleParts = CsvUtils.splitX(tmpItem[4], '-', 1);
-					let file = `${fu.cwdEdo}${eleParts[0]}/${eleParts[1]}`; // update for doing checkout inside dirs
-					if (!await fu.exists(file)) {
+					const eleParts = CsvUtils.splitX(tmpItem[4], FileUtils.separator, 1);
+					let file = `${FileUtils.cwdEdo}${tmpItem[4]}`; // update for doing checkout inside dirs
+					if (!await FileUtils.exists(file)) {
 						if (tmpItem[0] == 'lsha1' && tmpItem[1] == 'rsha1') {
 							continue; // doesn't exists in work directory, local or in remote
 							// should do fetch, but not sure if message should be shown
@@ -66,7 +66,7 @@ export class EdoCheckoutApi {
 					// remove files
 					for (let file of files) {
 						try {
-							await fu.unlink(file);
+							await FileUtils.unlink(file);
 						} catch (err) {
 							console.error(`Error detected while removing file '${file}' from working directory.`);
 						}
@@ -74,7 +74,7 @@ export class EdoCheckoutApi {
 					// remove directories
 					for (let dir of dirs) {
 						try {
-							await fu.rmdir(dir);
+							await FileUtils.rmdir(dir);
 						} catch (err) {
 							// don't care (keep if there is anything left in that directory)
 						}
@@ -88,7 +88,7 @@ export class EdoCheckoutApi {
 			// don't care if index file doesn't exist... there is nothing fetched
 		}
 
-		let indexSha1 = await fu.readRefs(stage);
+		let indexSha1 = await FileUtils.readRefs(stage);
 		if (indexSha1 != null) {
 			let indexList: IEdoIndex;
 			try {
@@ -96,7 +96,7 @@ export class EdoCheckoutApi {
 			} catch (err) {
 				// file doesn't exists or read error, skip updating working tree
 				// console.log("There is no index for this stage, run 'edo fetch' and 'edo pull'");
-				// await fu.writefile(`${fu.getEdoDir()}/${fu.stageFile}`, Buffer.from(stage));
+				// await FileUtils.writefile(`${FileUtils.getEdoDir()}/${FileUtils.stageFile}`, Buffer.from(stage));
 				// console.log("checkout map stage: " + stage); // update stage (so the checkout is done)
 				// process.exit(0);
 				console.log("index error: " + err);
@@ -111,7 +111,7 @@ export class EdoCheckoutApi {
 				if (sha1 != null) {
 					try {
 						const buf = await EdoCache.getSha1Object(sha1, EdoCache.OBJ_BLOB);
-						await fu.writeFile(file, buf);
+						await FileUtils.writeFile(file, buf);
 					} catch (err) {
 						console.error(`Error while checking out local version of '${file}'! ` + err);
 					}
@@ -125,15 +125,15 @@ export class EdoCheckoutApi {
 				console.log(noFiles.join(', '));
 			}
 		} else {
-			// await fu.mkdir(`${fu.getEdoDir()}/${fu.mapDir}/${stage}`);
+			// await FileUtils.mkdir(`${FileUtils.getEdoDir()}/${FileUtils.mapDir}/${stage}`);
 			// TODO: index doesn't exists, create by fetch???
 			// file doesn't exists or read error, skip updating working tree
 			console.log("There is no index for this stage, run 'edo fetch' and 'edo pull'");
-			// await fu.writefile(`${fu.getEdoDir()}/${fu.stageFile}`, Buffer.from(stage));
+			// await FileUtils.writefile(`${FileUtils.getEdoDir()}/${FileUtils.stageFile}`, Buffer.from(stage));
 			// console.log("checkout map stage: " + stage); // update stage (so the checkout is done)
 			// process.exit(0);
 		}
-		await fu.writeFile(`${fu.getEdoDir()}/${fu.stageFile}`, Buffer.from(stage));
+		await FileUtils.writeFile(`${FileUtils.getEdoDir()}/${FileUtils.stageFile}`, Buffer.from(stage));
 		console.log("checkout map stage: " + stage);
 	}
 

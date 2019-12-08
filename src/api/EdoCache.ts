@@ -1,4 +1,4 @@
-import { FileUtils as fu, IObject } from './utils/FileUtils';
+import { IObject, FileUtils } from './utils/FileUtils';
 import { isNullOrUndefined } from 'util';
 import { IEdoIndex } from './doc/IEdoIndex';
 import { HashUtils } from '../utils/HashUtils';
@@ -35,16 +35,16 @@ export class EdoCache {
 		output.push(`mesg ${index.mesg}`);
 		output.push(`type ${index.type}`);
 
-		if (!await fu.exists(".ele")) {
-			await fu.mkdir(".ele"); // create directory (just in case)
+		if (!await FileUtils.exists(".ele")) {
+			await FileUtils.mkdir(".ele"); // create directory (just in case)
 		}
 		if (!isNullOrUndefined(index.elem)) {
 			let eles: string[] = Object.keys(index.elem);
 			eles.forEach((eleKey: string) => {
 				// lsha1,rsha1,fingerprint,hsha1,typeName-fullElmName (new version)
-				const elePart = CsvUtils.splitX(eleKey, '-', 1);
+				const elePart = CsvUtils.splitX(eleKey, FileUtils.separator, 1);
 				output.push(`elem ${index.elem[eleKey]}`);
-				fu.touchFile(`.ele/${elePart[1]}.${elePart[0]}`);
+				FileUtils.touchFile(`.ele/${elePart[1]}.${elePart[0]}`);
 			});
 		}
 		return EdoCache.addSha1Object(Buffer.from(output.join('\n')), EdoCache.OBJ_LIST);
@@ -53,7 +53,7 @@ export class EdoCache {
 	/**
 	 * Get index (list of elements and other meta data) from sha1.
 	 *
-	 * @param sha1
+	 * @param sha1 of index file
 	 */
 	public static async readIndex(sha1: string): Promise<IEdoIndex> {
 		let buf: Buffer = await EdoCache.getSha1Object(sha1, EdoCache.OBJ_LIST);
@@ -85,6 +85,48 @@ export class EdoCache {
 	}
 
 	/**
+	 * Get list of files in format `typeName/eleName` from provided index.
+	 *
+	 * Files can be filtered by using filter parameter in format `key=value`, where key
+	 * can be one of the following: lsha1, rsha1, fingerprint.
+	 *
+	 * Example of filter `fingerprint=null` will return list of files which has
+	 * null fingerprint.
+	 *
+	 * @param index IEdoIndex
+	 * @param filter used to filter files (e.g. `fingerprint=null`)
+	 */
+	public static getFiles(index: IEdoIndex, filter?: string): string[] {
+		let eles: string[] = Object.values(index.elem);
+		let filterKey = 2; // default fingerprint filter
+		let filterValue = 'null'; // default if null returns
+		if (!isNullOrUndefined(filter)) {
+			const tmpFil = filter.split("=");
+			if (tmpFil[0] == 'fingerprint') {
+				filterKey = 2;
+			} else if (tmpFil[0] == 'lsha1') {
+				filterKey = 0;
+			} else if (tmpFil[0] == 'rsha1') {
+				filterKey = 1;
+			}
+			filterValue = tmpFil[1];
+		}
+
+		let files: string[] = [];
+		for (const line of eles) {
+			const tmpLine = CsvUtils.splitX(line, ',', 4);
+			if (!isNullOrUndefined(filter)) {
+				if (tmpLine[filterKey] == filterValue) {
+					files.push(tmpLine[4]);
+				}
+			} else {
+				files.push(tmpLine[4]);
+			}
+		}
+		return files;
+	}
+
+	/**
 	 * Get SHA1 object from the db (.edo/objects/sha1...)
 	 *
 	 * @param sha1 object
@@ -92,7 +134,7 @@ export class EdoCache {
 	 * @returns Buffer with data from object
 	 */
 	public static async getSha1Object(sha1: string, type?: string): Promise<Buffer> {
-		const obj: IObject = await fu.readSha1file(sha1);
+		const obj: IObject = await FileUtils.readSha1file(sha1);
 		if (sha1 != HashUtils.getHash(obj.data)
 			|| (obj.length + obj.dataOffset + 1) == obj.data.length) {
 			throw Error("incorrect sha1 checksum... corrupted data!!!");
@@ -113,7 +155,7 @@ export class EdoCache {
 	public static async addSha1Object(data: Buffer, type: string): Promise<string> {
 		const buf: Buffer = EdoCache.createObjectBuffer(data, type);
 		const sha1 = HashUtils.getHash(buf);
-		await fu.writeSha1file(sha1, buf);
+		await FileUtils.writeSha1file(sha1, buf);
 		return sha1;
 	}
 
@@ -140,8 +182,8 @@ export class EdoCache {
 	 * @param sha1 object
 	 */
 	public static async sha1Exists(sha1: string): Promise<boolean> {
-		let dirName = fu.getEdoDir() + '/' + fu.objectDir + '/' + sha1.substr(0, 2);
-		return fu.exists(dirName + '/' + sha1.substring(2));
+		let dirName = FileUtils.getEdoDir() + '/' + FileUtils.objectDir + '/' + sha1.substr(0, 2);
+		return FileUtils.exists(dirName + '/' + sha1.substring(2));
 	}
 
 }

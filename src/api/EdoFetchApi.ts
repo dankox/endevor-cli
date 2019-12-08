@@ -67,10 +67,10 @@ export class EdoFetchApi {
 
 		if (!isNullOrUndefined(eles)) {
 			eles.forEach((ele: IEleList) => {
-				// CSV line: `lsha1,rsha1,${ele.fingerprint},history_sha1,${ele.typeName}-${ele.fullElmName}\n`; // new format
-				const key = `${ele.typeName}-${ele.fullElmName}`;
+				// CSV line: `lsha1,rsha1,${ele.fingerprint},history_sha1,${ele.typeName}/${ele.fullElmName}\n`; // new format
+				const key = `${ele.typeName}${FileUtils.separator}${ele.fullElmName}`;
 				if (!isNullOrUndefined(index_list[key])) {
-					let tmpItem = CsvUtils.splitX(index_list[key], ',', 4); // lsha1,rsha1,fingerprint,hsha1,typeName-fullElmName (new version)
+					let tmpItem = CsvUtils.splitX(index_list[key], ',', 4); // lsha1,rsha1,fingerprint,hsha1,typeName/fullElmName (new version)
 					if (tmpItem[2] != ele.fingerprint) {
 						tmpItem[2] = "null"; // nullify fingerprint for pull (it pulls only null fingerprint)
 						index_list[key] = tmpItem.join(','); // update index list
