@@ -165,10 +165,9 @@ export class CsvUtils {
 	 *
 	 * @param line from index file `Object.values(IEdoIndex.elem)`
 	 */
-	public static getFilePath(line: string): string {
-		let tmpItem = CsvUtils.splitX(line, ',', 4);  // lsha1,rsha1,fingerprint,fileExt,typeName-fullElmName
-		let file = `${FileUtils.cwdEdo}${tmpItem[4]}`;
-		return tmpItem[4];
+	public static getFilePath(line: string[]): string {
+		let file = `${FileUtils.cwdEdo}${line[4]}`;
+		return line[4];
 		// return file; // TODO: not sure about this... should be relative path or just type/elemname?
 	}
 
@@ -202,12 +201,12 @@ export class CsvUtils {
 	 *
 	 * @param line from index file `Object.values(IEdoIndex.elem)`
 	 */
-	public static getCurrentSha1(line: string): string | null {
-		let tmpItem = CsvUtils.splitX(line, ',', 4);  // lsha1,rsha1,fingerprint,fileExt,typeName-fullElmName
-		if (tmpItem[0] != 'lsha1') { // get latest local version (if exists)
-			return tmpItem[0];
-		} else if (tmpItem[1] != 'rsha1') { // if not, get remote version (if exists)
-			return tmpItem[1];
+	public static getCurrentSha1(line: string[]): string | null {
+		// lsha1,rsha1,fingerprint,hsha2,typeName-fullElmName
+		if (line[0] != 'lsha1') { // get latest local version (if exists)
+			return line[0];
+		} else if (line[1] != 'rsha1') { // if not, get remote version (if exists)
+			return line[1];
 		}
 		// if doesn't exists, return null
 		return null;

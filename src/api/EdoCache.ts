@@ -43,7 +43,7 @@ export class EdoCache {
 			eles.forEach((eleKey: string) => {
 				// lsha1,rsha1,fingerprint,hsha1,typeName-fullElmName (new version)
 				const elePart = CsvUtils.splitX(eleKey, FileUtils.separator, 1);
-				output.push(`elem ${index.elem[eleKey]}`);
+				output.push(`elem ${index.elem[eleKey].join(',')}`);
 				FileUtils.touchFile(`.ele/${elePart[1]}.${elePart[0]}`);
 			});
 		}
@@ -58,7 +58,7 @@ export class EdoCache {
 	public static async readIndex(sha1: string): Promise<IEdoIndex> {
 		let buf: Buffer = await EdoCache.getSha1Object(sha1, EdoCache.OBJ_LIST);
 		const data: string[] = buf.toString().split('\n');
-		let elem: { [key: string]: string } = {};
+		let elem: { [key: string]: string[] } = {};
 		let prev = 'null';
 		let stgn = '';
 		let stat = '';
@@ -68,7 +68,7 @@ export class EdoCache {
 			if (line.startsWith("elem ")) {
 				// lsha1,rsha1,fingerprint,??print??,typeName-fullElmName
 				const keyVal = CsvUtils.splitX(line.substring(5).trimRight(), ',', 4);
-				elem[keyVal[4]] = keyVal.join(',');
+				elem[keyVal[4]] = keyVal;
 			} else if (line.startsWith("prev ")) {
 				prev = line.substring(5).trimRight();
 			} else if (line.startsWith("stgn ")) {
@@ -97,7 +97,7 @@ export class EdoCache {
 	 * @param filter used to filter files (e.g. `fingerprint=null`)
 	 */
 	public static getFiles(index: IEdoIndex, filter?: string): string[] {
-		let eles: string[] = Object.values(index.elem);
+		let eles: string[][] = Object.values(index.elem);
 		let filterKey = 2; // default fingerprint filter
 		let filterValue = 'null'; // default if null returns
 		if (!isNullOrUndefined(filter)) {
@@ -114,13 +114,12 @@ export class EdoCache {
 
 		let files: string[] = [];
 		for (const line of eles) {
-			const tmpLine = CsvUtils.splitX(line, ',', 4);
 			if (!isNullOrUndefined(filter)) {
-				if (tmpLine[filterKey] == filterValue) {
-					files.push(tmpLine[4]);
+				if (line[filterKey] == filterValue) {
+					files.push(line[4]);
 				}
 			} else {
-				files.push(tmpLine[4]);
+				files.push(line[4]);
 			}
 		}
 		return files;

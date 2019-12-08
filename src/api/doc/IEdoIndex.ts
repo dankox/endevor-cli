@@ -7,7 +7,7 @@ export interface IEdoIndex {
 	stat: string;
 	mesg: string;
 	type: string;
-	elem: { [key: string]: string };
+	elem: { [key: string]: string[] };
 }
 
 /**

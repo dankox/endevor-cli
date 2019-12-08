@@ -35,8 +35,7 @@ export class EdoCheckoutApi {
 				let saveChanges: boolean = false;
 
 				// walk thru elements and check if can be removed
-				for (let item of lines) {
-					let tmpItem = CsvUtils.splitX(item, ',', 4);
+				for (let tmpItem of lines) {
 					const eleParts = CsvUtils.splitX(tmpItem[4], FileUtils.separator, 1);
 					let file = `${FileUtils.cwdEdo}${tmpItem[4]}`; // update for doing checkout inside dirs
 					if (!await FileUtils.exists(file)) {
@@ -49,7 +48,7 @@ export class EdoCheckoutApi {
 					}
 					let lsha1 = '';
 					try {
-						lsha1 = await hash.getFileHash(file);
+						lsha1 = await hash.getEdoFileHash(file);
 					} catch (err) {
 						// error while reading file, so don't push it.
 						continue;

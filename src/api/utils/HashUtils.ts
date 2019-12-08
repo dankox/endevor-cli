@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import * as fs from "fs";
+import { EdoCache } from "../EdoCache";
 
 export class HashUtils {
 	static readonly algo = 'sha1';
@@ -16,12 +17,22 @@ export class HashUtils {
 
 	public static getHashType(buf: Buffer, type: string) {
 		let hash = crypto.createHash(HashUtils.algo);
-		const prefixStr: string = type + ' ' + buf.length + '\n'; //??? 0x00
-		const tmpBuf: Buffer = Buffer.alloc(Buffer.byteLength(prefixStr) + buf.length);
-		Buffer.from(prefixStr).copy(tmpBuf);
-		buf.copy(tmpBuf, Buffer.byteLength(prefixStr));
+		const tmpBuf = EdoCache.createObjectBuffer(buf, type);
 		hash.update(tmpBuf);
 		return hash.digest('hex');
+	}
+
+	public static async getEdoFileHash(file: string) {
+		return new Promise<string>((resolve, reject) => {
+				fs.readFile(file, (error, buffer) => {
+					if (error) {
+						reject(error);
+						return;
+					}
+					const sha1 = HashUtils.getHashType(buffer, EdoCache.OBJ_BLOB);
+					resolve(sha1);
+				});
+		});
 	}
 
 	public static async getFileHash(file: string) {

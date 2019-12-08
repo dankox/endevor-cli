@@ -40,7 +40,7 @@ export class EdoFetchApi {
 			EdoFetchApi.fetchTypes(config, stage)
 		]);
 
-		let index_list: { [key: string]: string } = {};
+		let index_list: { [key: string]: string[] } = {};
 		// read index to load index_list (if not read before)
 		if (isNullOrUndefined(index)) {
 			try {
@@ -70,14 +70,14 @@ export class EdoFetchApi {
 				// CSV line: `lsha1,rsha1,${ele.fingerprint},history_sha1,${ele.typeName}/${ele.fullElmName}\n`; // new format
 				const key = `${ele.typeName}${FileUtils.separator}${ele.fullElmName}`;
 				if (!isNullOrUndefined(index_list[key])) {
-					let tmpItem = CsvUtils.splitX(index_list[key], ',', 4); // lsha1,rsha1,fingerprint,hsha1,typeName/fullElmName (new version)
+					let tmpItem = index_list[key]; // lsha1,rsha1,fingerprint,hsha1,typeName/fullElmName (new version)
 					if (tmpItem[2] != ele.fingerprint) {
 						tmpItem[2] = "null"; // nullify fingerprint for pull (it pulls only null fingerprint)
-						index_list[key] = tmpItem.join(','); // update index list
+						index_list[key] = tmpItem; // update index list
 					}
 				} else {
 					// for non-existent index key, create new one
-					index_list[key] = `lsha1,rsha1,null,null,${key}`;
+					index_list[key] = [`lsha1`, `rsha1`, `null`, `null`, key];
 				}
 			});
 			index.elem = index_list;

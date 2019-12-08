@@ -28,8 +28,8 @@ export class EdoPullApi {
 	public static async pull(config: ISettings, stage: string, files: string[], type: string = EdoCache.OBJ_BLOB, search: boolean = false) {
 		let index: IEdoIndex | null = null;
 		let indexSha1: string | null = null;
-		let file_list: {[key: string]: string } = {}; // list for download
-		let index_list: {[key: string]: string } = {}; // list from index file
+		let file_list: {[key: string]: string[] } = {}; // list for download
+		let index_list: {[key: string]: string[] } = {}; // list from index file
 		let orig_base_list: {[key: string]: string } = {}; // list created when pulled to store original rsha1 (for base)
 
 		// if sha1, grab stage name from index file, or load index
@@ -52,7 +52,7 @@ export class EdoPullApi {
 		// Check correct file format
 		for (const file of files) {
 			if (file.match(/^[0-9A-Za-z]+\/.+$/)) {
-				file_list[file] = `lsha1,rsha1,null,null,${file}`; // lsha1,rsha1,fingerprint,fileExt,typeName/fullElmName
+				file_list[file] = [`lsha1`, `rsha1`, `null`, `null`, file]; // lsha1,rsha1,fingerprint,fileExt,typeName/fullElmName
 			} else {
 				throw new Error(`File ${file} doesn't match typeName/elementName format!`);
 			}
@@ -67,13 +67,12 @@ export class EdoPullApi {
 			if (isNullOrUndefined(pullKey)) return; // skip nulls
 
 			const keyParts = CsvUtils.splitX(pullKey, ',', 2); // sha1,fingerprint,type/element
-			const listLine = isNullOrUndefined(index_list[keyParts[2]]) ? file_list[keyParts[2]] : index_list[keyParts[2]];
-			let tmp = CsvUtils.splitX(listLine, ',', 4); // lsha1,rsha1,fingerprint,hsha1,typeName/fullElmName (new version)
+			const tmp = isNullOrUndefined(index_list[keyParts[2]]) ? file_list[keyParts[2]] : index_list[keyParts[2]];
 			if (tmp[1] != 'rsha1')
 				orig_base_list[keyParts[2]] = tmp[1]; // save original rsha1 for later merge (as base)
 			tmp[1] = keyParts[0]; // remote-sha1
 			tmp[2] = keyParts[1]; // fingerprint
-			index_list[keyParts[2]] = tmp.join(','); // update index with new rsha1 and fingerprint
+			index_list[keyParts[2]] = tmp; // update index with new rsha1 and fingerprint
 		});
 
 		// update index list
@@ -94,7 +93,7 @@ export class EdoPullApi {
 			const element = CsvUtils.splitX(pullKey, ',', 2)[2]; // sha1,fingerprint,type/element
 			// let elemParts = CsvUtils.splitX(element, FileUtils.separator, 1);
 			let wdFile = FileUtils.cwdEdo + element;
-			let tmpItem = CsvUtils.splitX(index_list[element], ',', 4); // lsha1,rsha1,fingerprint,hsha1,typeName/fullElmName
+			let tmpItem = index_list[element]; // lsha1,rsha1,fingerprint,hsha1,typeName/fullElmName
 			// TODO: deleted?? should be merged somehow with local? conflict??
 			if (tmpItem[1] == 'rsha1')
 				continue; // for not pulled element, skip merge
@@ -105,7 +104,7 @@ export class EdoPullApi {
 					await FileUtils.writeFile(wdFile, await EdoCache.getSha1Object(tmpItem[1], EdoCache.OBJ_BLOB));
 					// save sha1 from remote to local
 					tmpItem[0] = tmpItem[1];
-					index_list[element] = tmpItem.join(','); // update index list
+					index_list[element] = tmpItem; // update index list
 					updateIndex = true;
 				} catch (err) {
 					console.error(`Error while updating working directory element '${element}': ${err}`);
@@ -113,7 +112,7 @@ export class EdoPullApi {
 			} else { // merge (if it has lsha1 or it already exists in workdir, create merge content)
 				try {
 					if (tmpItem[0] == 'lsha1' && workExist) {
-						const lsha1 = await HashUtils.getFileHash(wdFile);
+						const lsha1 = await HashUtils.getEdoFileHash(wdFile);
 						if (lsha1 == tmpItem[1]) continue; // for the same as remote, skip
 					}
 					if (isNullOrUndefined(orig_base_list[element])) {
@@ -216,10 +215,10 @@ export class EdoPullApi {
 
 
 // Test
-(async () => {
-	let config = await FileUtils.readSettings();
-	let stage = await FileUtils.readStage();
-	// let files = EdoCache.getFiles(await EdoCache.readIndex(stage), 'fingerprint=null');
-	let files = [ 'ASMPGM/BC1PENCR' ];
-	await EdoPullApi.pull(config, stage, files);
-})();
+// (async () => {
+// 	let config = await FileUtils.readSettings();
+// 	let stage = await FileUtils.readStage();
+// 	// let files = EdoCache.getFiles(await EdoCache.readIndex(stage), 'fingerprint=null');
+// 	let files = [ 'ASMPGM/BC1PENCR' ];
+// 	await EdoPullApi.pull(config, stage, files);
+// })();

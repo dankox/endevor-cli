@@ -4,7 +4,7 @@ import yargs from 'yargs';
 import { EdoInit } from './cli/EdoInit';
 import { EdoFetch } from './cli/EdoFetch';
 import { EdoCheckout } from './cli/EdoCheckout';
-import { EdoPull } from './EdoPull';
+import { EdoPull } from './cli/EdoPull';
 import { EdoStatus } from './EdoStatus';
 import { EdoRestore } from './EdoRestore';
 import { EdoCommit } from './EdoCommit';
@@ -18,7 +18,7 @@ yargs.usage('Usage: $0 <command> [options]')
 		EdoInit.edoInitOptions, EdoInit.process)
 	.command('checkout <stage>', 'Checkout stage from local repo', EdoCheckout.edoCheckoutOptions, EdoCheckout.process)
 	.command('fetch [options]', 'Fetch list of elements for local stage', EdoFetch.edoFetchOptions, EdoFetch.process)
-	.command('pull [file]', 'Get elements from the list to local stage', EdoPull.edoPullOptions, EdoPull.pull)
+	.command('pull [files..]', 'Get elements from the list to local stage', EdoPull.edoPullOptions, EdoPull.pull)
 	.command('push [file] [options]', 'Push elements from local stage to remote stage', EdoPush.edoPushOptions, EdoPush.push)
 	.command('status', 'Show the working tree status', {}, EdoStatus.status)
 	.command('commit [file]', 'Commit working directory to local stage', EdoCommit.edoCommitOptions, EdoCommit.commit)
