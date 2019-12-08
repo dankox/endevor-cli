@@ -14,6 +14,7 @@ export interface IEdoIndex {
  * EdoIndex class for easier implementing of index
  */
 export class EdoIndex {
+	static readonly STAT_UPDATED: string = 'updated';
 	static readonly STAT_FETCHED: string = 'fetched';
 
 	/**

@@ -27,6 +27,7 @@ export class FileUtils {
 	static readonly edoDir: string = ".edo";
 	static readonly objectDir: string = "objects";
 	static readonly refsDir: string = "refs";
+	static readonly remoteRefsDir: string = "remote";
 	static readonly configFile: string = "config";
 	static readonly stageMapFile: string = "stagemap";
 	static readonly sysMapFile: string = "sysmap";
@@ -114,11 +115,14 @@ export class FileUtils {
 	/**
 	 * Read refs file (either location name, or tag) and get sha1 from it
 	 *
-	 * @param ref
+	 * @param ref name of stage/tag to write
+	 * @param remote specify remote or local refs (`true` for remote), (default `false`)
 	 */
-	public static async readRefs(ref: string): Promise<string | null> {
-		if (await FileUtils.exists(`${FileUtils.getEdoDir()}/${FileUtils.refsDir}/${ref}`)) {
-			return (await FileUtils.readFile(`${FileUtils.getEdoDir()}/${FileUtils.refsDir}/${ref}`)).toString();
+	public static async readRefs(ref: string, remote: boolean = false): Promise<string | null> {
+		let refPath = `${FileUtils.getEdoDir()}/${FileUtils.refsDir}/${ref}`;
+		if (remote) refPath = `${FileUtils.getEdoDir()}/${FileUtils.refsDir}/${FileUtils.remoteRefsDir}/${ref}`;
+		if (await FileUtils.exists(refPath)) {
+			return (await FileUtils.readFile(refPath)).toString();
 		} else {
 			return null;
 		}
@@ -127,10 +131,14 @@ export class FileUtils {
 	/**
 	 * Write refs file (either location name, or tag) and put sha1 of new index in it
 	 *
-	 * @param ref
+	 * @param ref name of stage/tag to write
+	 * @param sha1 id of index
+	 * @param remote specify remote or local refs (`true` for remote), (default `false`)
 	 */
-	public static async writeRefs(ref: string, sha1: string): Promise<void> {
-		return FileUtils.writeFile(`${FileUtils.getEdoDir()}/${FileUtils.refsDir}/${ref}`, Buffer.from(sha1));
+	public static async writeRefs(ref: string, sha1: string, remote: boolean = false): Promise<void> {
+		let refPath = `${FileUtils.getEdoDir()}/${FileUtils.refsDir}/${ref}`;
+		if (remote) refPath = `${FileUtils.getEdoDir()}/${FileUtils.refsDir}/${FileUtils.remoteRefsDir}/${ref}`;
+		return FileUtils.writeFile(refPath, Buffer.from(sha1));
 	}
 
 	/**

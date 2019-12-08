@@ -16,81 +16,133 @@ export class EdoFetchApi {
 	static readonly listele: string = "env/*/stgnum/*/sys/*/subsys/*/type/*/ele";
 
 	/**
-	 * Fetch elements/types for stage and config specified in parameters.
+	 * Fetch remote repo for stage and config specified in parameters.
 	 * Populates index file and store it in edo database.
-	 * Updates refs file with up-to-date index sha1.
+	 * Updates remote refs file with up-to-date index sha1.
 	 *
 	 * @param config ISettings with repo URL and credentials
 	 * @param stage name or sha1 to fetch. If sha1, stage name will be used from
 	 * already existed index (referenced by sha1 id).
+	 * @param files list of files which you can force fetch (if empty, fetch only updated files from index)
+	 * @param type of the files to fetch (`EdoCache.OBJ_BLOB` - elements, `EdoCache.OBJ_LOG` - print history?) default `EdoCache.OBJ_BLOB`
+	 * @param search in map if not in remote stage (use when trying to grab elements from higher location in the map, default `false`)
 	 */
-	public static async fetchStage(config: ISettings, stage: string) {
-		let index: IEdoIndex | null = null;
+	public static async fetchRemote(config: ISettings, stage: string, files: string[] = [], type: string = EdoCache.OBJ_BLOB, search: boolean = false) {
+		let index: IEdoIndex;
 		let indexSha1: string | null = null;
-		// if sha1, grab stage name from index file
+		let updateIdx: boolean = false;
+
+		// if sha1, grab stage name from index file, or load index
 		if (HashUtils.isSha1(stage)) {
-			indexSha1 = stage;
 			index = await EdoCache.readIndex(stage);
 			stage = index.stgn;
 		}
 
+		// read index to load index_list
+		indexSha1 = await FileUtils.readRefs(stage, true); // get remote index sha1
+		if (indexSha1 != null) {
+			index = await EdoCache.readIndex(indexSha1); // load remote index
+		} else {
+			console.error("no remote index!"); // don't stop
+			index = EdoIndex.init(stage); // init empty index with stage name
+		}
+
+		// for no files passed, fetch index from Endevor and pick files from it
+		if (files.length == 0) {
+			updateIdx = await EdoFetchApi.fetchIndex(config, index);
+			files = EdoCache.getFiles(index, "fingerprint=null"); // get files with no fingerprint
+		} else {
+			// Check correct file format
+			for (const file of files) {
+				if (!file.match(/^[0-9A-Za-z]+\/.+$/)) {
+					throw new Error(`File ${file} doesn't match typeName/elementName format!`);
+				}
+			}
+		}
+
+		// fetch elements either from index or specified as argument
+		if (files.length > 0) {
+			// fetch element files
+			if (type == EdoCache.OBJ_BLOB) {
+				process.stdout.write("fetching elements...");
+				let fetchedKeys: (string[] | null)[] = await Promise.all(files.map(item => EdoFetchApi.fetchElement(config, stage, item, search)));
+				console.log(" "); // new line to console log
+
+				// update index with new sha1 and fingerprint
+				fetchedKeys.forEach(fetchKey => {
+					if (isNullOrUndefined(fetchKey)) return; // skip nulls
+					if (!isNullOrUndefined(index.elem[fetchKey[4]])) {
+						// for existing index key, save 3rd field (hsha1)
+						fetchKey[3] = index.elem[fetchKey[4]][3];
+					}
+					index.elem[fetchKey[4]] = fetchKey;
+					updateIdx = true;
+				});
+			}
+		}
+
+		if (updateIdx) {
+			// write index for remote stage (fetch doesn't work on local stage)
+			console.log(`writing index for remote ${stage}...`);
+			indexSha1 = await EdoCache.writeIndex(index);
+			if (indexSha1 != null) FileUtils.writeRefs(stage, indexSha1, true); // update refs
+			console.log(`fetch of ${stage} done!`);
+		} else {
+			console.log(`nothing to update...`);
+		}
+	}
+
+	/**
+	 * Fetch index from remote repo. What this means, is get element/type list from
+	 * Endevor and update index passed as argument to reflect changes obtained from
+	 * remote. Any new/updated element in Endevor will be included and fingerprint
+	 * will be set to `null`.
+	 *
+	 * `IEdoIndex.stat` will be set to `EdoIndex.STAT_UPDATED` when any change occurs
+	 * on the passed index.
+	 *
+	 * @param config ISettings with repo URL and credentials
+	 * @param index passed to update with lists from remote repo (Endevor)
+	 */
+	public static async fetchIndex(config: ISettings, index: IEdoIndex) {
+		let updated: boolean = false;
 		// get element list and fetch types to database
-		let [ eles, typeSha1 ] = await Promise.all([
-			EdoFetchApi.getElementList(config, stage),
-			EdoFetchApi.fetchTypes(config, stage)
+		let [ eleList, typeSha1 ] = await Promise.all([
+			EdoFetchApi.getElementList(config, index.stgn),
+			EdoFetchApi.fetchTypes(config, index.stgn)
 		]);
 
-		let index_list: { [key: string]: string[] } = {};
-		// read index to load index_list (if not read before)
-		if (isNullOrUndefined(index)) {
-			try {
-				// get sha1 from refs
-				indexSha1 = await FileUtils.readRefs(stage);
-				// if exists read index and get list of elements
-				if (indexSha1 != null) {
-					index = await EdoCache.readIndex(indexSha1);
-					index_list = index.elem;
-					index.prev = indexSha1;
-				} else {
-					index = EdoIndex.init(stage);
-				}
-			} catch (err) {
-				// don't care, list remains empty
-				index = EdoIndex.init(stage);
-			}
-		} else {
-			// get index_list from loaded index
-			index_list = index.elem;
+		if (index.type != typeSha1) {
+			index.type = typeSha1;
+			updated = true;
 		}
-		index.type = typeSha1;
-		index.stat = EdoIndex.STAT_FETCHED; // set status to 'fetched'
 
-		if (!isNullOrUndefined(eles)) {
-			eles.forEach((ele: IEleList) => {
-				// CSV line: `lsha1,rsha1,${ele.fingerprint},history_sha1,${ele.typeName}/${ele.fullElmName}\n`; // new format
+		if (!isNullOrUndefined(eleList)) {
+			let index_list = index.elem;
+			eleList.forEach((ele: IEleList) => {
 				const key = `${ele.typeName}${FileUtils.separator}${ele.fullElmName}`;
 				if (!isNullOrUndefined(index_list[key])) {
 					let tmpItem = index_list[key]; // lsha1,rsha1,fingerprint,hsha1,typeName/fullElmName (new version)
 					if (tmpItem[2] != ele.fingerprint) {
 						tmpItem[2] = "null"; // nullify fingerprint for pull (it pulls only null fingerprint)
-						index_list[key] = tmpItem; // update index list
+						updated = true;
 					}
 				} else {
 					// for non-existent index key, create new one
 					index_list[key] = [`lsha1`, `rsha1`, `null`, `null`, key];
+					updated = true;
 				}
 			});
-			index.elem = index_list;
-			console.log(`writing index for ${stage}...`);
-			indexSha1 = await EdoCache.writeIndex(index);
-			if (indexSha1 != null) FileUtils.writeRefs(stage, indexSha1); // update refs
-			console.log(`fetch of ${stage} done!`);
 		} else {
-			// TODO: do I care? if there are no elements, nothing to update... or maybe delete ???
-			console.error("no elements fetched!");
+			// TODO: do I care? should I update index??? all elements deleted??
+			console.error("list of elements is empty!!! (DELETED???)");
 		}
-	}
 
+		// set status on index to updated
+		if (updated) index.stat = EdoIndex.STAT_UPDATED;
+
+		return updated;
+	}
 
 	/**
 	 * Get element list for stage(subsystem) from Endevor repo specified in config file.
@@ -127,6 +179,56 @@ export class EdoFetchApi {
 			return result;
 		} catch (err) {
 			throw new Error(`Exception when obtaining element list for stage '${stage}':\n${err}`);
+		}
+	}
+
+	/**
+	 * Fetch element from Endevor (do retrieve action) and save it as sha1 in Edo database.
+	 *
+	 * @param config ISettings from config file
+	 * @param stage string in format `env-stgnum-system-subsystem`
+	 * @param element name in format `typeName/eleName` (last item in index list)
+	 * @param search in map if not in remote stage (use when trying to grab elements from higher location in the map, default `false`)
+	 * @returns string `sha1,fingerprint,element`
+	 */
+	public static async fetchElement(config: ISettings, stage: string, element: string, search: boolean = false): Promise<string[] | null> {
+		let stageParts = stage.split('-');
+		let elemParts = CsvUtils.splitX(element, FileUtils.separator, 1);
+		let binHead = EndevorRestApi.getBinaryHeader(config);
+		let eleURL = `env/${stageParts[0]}/stgnum/${stageParts[1]}/sys/${stageParts[2]}/subsys/${stageParts[3]}/`
+			+ `type/${encodeURIComponent(elemParts[0])}/ele/${encodeURIComponent(elemParts[1])}?noSignout=yes`;
+		if (search)	eleURL += "&search=yes";
+
+		try {
+			const response: IRestResponse = await EndevorRestApi.getHttp(config.repoURL + eleURL, binHead);
+			process.stdout.write('.'); // TODO: what to do with this output :) it's in api...
+
+			let jsonBody;
+			// check if error, or not found
+			if (!isNullOrUndefined(response.status) && response.status != 200 ) {
+				try {
+					// parse body, there will be messages
+					jsonBody = JSON.parse(response.body);
+				} catch (err) {
+					console.error("json parsing error: " + err);
+					return null;
+				}
+				if (response.status != 206) {
+					console.error(`Error obtaining element from url '${eleURL}':\n${jsonBody.messages}`);
+				} else {
+					console.warn(`Element '${element}' not found in stage '${stage}', re-run 'edo fetch' or 'edo fetch ${element}'`);
+				}
+				return null;
+			}
+			// element obtained, write it into file
+			const body: Buffer = response.body;
+			const fingerprint: any = response.headers["fingerprint"];
+			const sha1 = await EdoCache.addSha1Object(body, EdoCache.OBJ_BLOB);
+
+			return [ sha1, sha1, fingerprint, 'null', element ]; // index list format
+		} catch (err) {
+			console.error(`Exception when obtaining element '${element}' from stage '${stage}':\n${err}`);
+			return null;
 		}
 	}
 
