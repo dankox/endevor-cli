@@ -79,8 +79,6 @@ export class EdoCheckoutApi {
 						}
 					}
 				} else {
-					// console.error("You have to save or discard your changes before checkout other stage.");
-					// process.exit(1);
 					throw new Error("You have to save or discard your changes before checkout other stage.");
 				}
 			}
@@ -102,38 +100,44 @@ export class EdoCheckoutApi {
 				throw new Error("error occur during reading index...");
 			}
 
-			let lines = Object.values(indexList.elem);
-			let noFiles: string[] = [];
-			for (let item of lines) {
-				let sha1 = CsvUtils.getCurrentSha1(item);
-				let file = CsvUtils.getFilePath(item);
-				if (sha1 != null) {
-					try {
-						const buf = await EdoCache.getSha1Object(sha1, EdoCache.OBJ_BLOB);
-						await FileUtils.writeFile(file, buf);
-					} catch (err) {
-						console.error(`Error while checking out local version of '${file}'! ` + err);
-					}
-				} else { // if doesn't exists, save for final message
-					noFiles.push(file);
-				}
-			}
+			await EdoCheckoutApi.checkoutFiles(indexList);
 
-			if (noFiles.length > 0) {
-				console.log("Following files are missing, run 'edo pull' to update stage:");
-				console.log(noFiles.join(', '));
-			}
 		} else {
 			// await FileUtils.mkdir(`${FileUtils.getEdoDir()}/${FileUtils.mapDir}/${stage}`);
 			// TODO: index doesn't exists, create by fetch???
 			// file doesn't exists or read error, skip updating working tree
-			console.log("There is no index for this stage, run 'edo fetch' and 'edo pull'");
+			console.log("There is no index for this stage, run 'edo fetch' and 'edo merge', or just run 'edo pull'");
 			// await FileUtils.writefile(`${FileUtils.getEdoDir()}/${FileUtils.stageFile}`, Buffer.from(stage));
 			// console.log("checkout map stage: " + stage); // update stage (so the checkout is done)
 			// process.exit(0);
 		}
 		await FileUtils.writeFile(`${FileUtils.getEdoDir()}/${FileUtils.stageFile}`, Buffer.from(stage));
 		console.log("checkout map stage: " + stage);
+	}
+
+	/**
+	 * Checkout files. Overwrite working directory with files from index.
+	 *
+	 * If files specified, checkout is limited to these files.
+	 *
+	 * @param index IEdoIndex with files to checkout
+	 * @param files list of files (in format `typeName/eleName`) to limit checkout
+	 */
+	public static async checkoutFiles(index: IEdoIndex, files: string[] = []) {
+		let lines = Object.values(index.elem);
+
+		for (const item of lines) {
+			// if files specified and current file is not in files, skip
+			if (files.length > 0 && files.indexOf(item[4]) == -1) continue;
+
+			const file = CsvUtils.getFilePath(item);
+			try {
+				const buf = await EdoCache.getSha1Object(item[0], EdoCache.OBJ_BLOB);
+				await FileUtils.writeFile(file, buf);
+			} catch (err) {
+				console.error(`Error while checking out local version of '${file}'! ` + err.message);
+			}
+		}
 	}
 
 }

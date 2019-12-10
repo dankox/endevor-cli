@@ -42,7 +42,7 @@ export class EdoCheckout {
 			await EdoCheckoutApi.checkout(stage);
 		} catch (err) {
 			console.error("Error while running checkout!");
-			console.error(err);
+			console.error(err.message);
 			process.exit(1);
 		}
 	}

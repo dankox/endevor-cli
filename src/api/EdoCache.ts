@@ -43,6 +43,10 @@ export class EdoCache {
 			eles.forEach((eleKey: string) => {
 				// lsha1,rsha1,fingerprint,hsha1,typeName-fullElmName (new version)
 				const elePart = CsvUtils.splitX(eleKey, FileUtils.separator, 1);
+				// check if there is no additional data from different processing, if so remove
+				while (index.elem[eleKey].length > 5) {
+					index.elem[eleKey].pop();
+				}
 				output.push(`elem ${index.elem[eleKey].join(',')}`);
 				FileUtils.touchFile(`.ele/${elePart[1]}.${elePart[0]}`);
 			});
@@ -82,6 +86,30 @@ export class EdoCache {
 			}
 		}
 		return { prev: prev, stgn: stgn, stat: stat, mesg: mesg, type: type, elem: elem };
+	}
+
+	/**
+	 * Read types from sha1 identifier. Returns indexable object where index is `typeName` and
+	 * value is array with 2 items.
+	 *
+	 * 1st - T or B (text or binary)
+	 *
+	 * 2nd - number (record length for the type)
+	 *
+	 * @param sha1 id of type object
+	 * @returns indexable object, format like: `types['typeName'] = [ 'T', '80' ]`
+	 */
+	public static async readTypes(sha1: string): Promise<{[key: string]: string[]}> {
+		//let types: string[] = [];
+		const types: string[] = (await EdoCache.getSha1Object(sha1, EdoCache.OBJ_TYPE)).toString().split('\n');
+		let data: { [key: string]: string[] } = {};
+		for (const line of types) {
+			const keyVal = line.match(/([^,]+),([^,]+),([^,]+)/);
+			if (keyVal != null) {
+				data[keyVal[1]] = [ keyVal[2], keyVal[3] ];
+			}
+		}
+		return data;
 	}
 
 	/**
