@@ -3,6 +3,7 @@ import { FileUtils } from "../api/utils/FileUtils";
 import { ISettings } from "../api/doc/ISettings";
 import { CsvUtils } from "../api/utils/CsvUtils";
 import { EdoFetchApi } from "../api/EdoFetchApi";
+import { EdoCache } from "../api/EdoCache";
 
 /**
  * Endevor fetch remote stage to local
@@ -39,14 +40,15 @@ export class EdoFetch {
 			if (argv.all) {
 				// get map array containing all stages to fetch from
 				let stageArr = await CsvUtils.getMapArray(stage);
-				// remove .ele helper (will be populated by fetch stage function)
-				await FileUtils.rmrf(".ele");
-				// run fetch for all stages from map
-				await Promise.all(stageArr.map(item => EdoFetchApi.fetchRemote(config, item)));
-
+				let index = await EdoFetchApi.fetchRemote(config, stage);
+				let files = EdoCache.getFiles(index);
+				stageArr.shift(); // remove first stage (we've got it ^)
+				for (const stg of stageArr) {
+					await EdoFetchApi.fetchRemote(config, stg, files);
+				}
 			} else if (argv.files) {
-				// run fetch for specific files
-				await EdoFetchApi.fetchRemote(config, stage, argv.files);
+				// run fetch for specific files with search (if file specified, we might want to grab it from map)
+				await EdoFetchApi.fetchRemote(config, stage, argv.files, EdoCache.OBJ_BLOB, true);
 			} else {
 				// run fetch for one stage only
 				await EdoFetchApi.fetchRemote(config, stage);

@@ -20,7 +20,7 @@ export class EdoCache {
 	/**
 	 * Write index file into edo db `.edo/objects/sha1` and return sha1.
 	 *
-	 * During run, creates helper for element names in `.ele/` directory.
+	 * Removed!!! ->During run, creates helper for element names in `.ele/` directory.
 	 *
 	 * @param index object containing the list, stage name and type list
 	 * @returns sha1 of stored index or null if index is null
@@ -35,9 +35,10 @@ export class EdoCache {
 		output.push(`mesg ${index.mesg}`);
 		output.push(`type ${index.type}`);
 
-		if (!await FileUtils.exists(".ele")) {
-			await FileUtils.mkdir(".ele"); // create directory (just in case)
-		}
+		// TODO: create helper, screw this (we don't fetch all anyway)
+		// if (!await FileUtils.exists(".ele")) {
+		// 	await FileUtils.mkdir(".ele"); // create directory (just in case)
+		// }
 		if (!isNullOrUndefined(index.elem)) {
 			let eles: string[] = Object.keys(index.elem);
 			eles.forEach((eleKey: string) => {
@@ -48,7 +49,7 @@ export class EdoCache {
 					index.elem[eleKey].pop();
 				}
 				output.push(`elem ${index.elem[eleKey].join(',')}`);
-				FileUtils.touchFile(`.ele/${elePart[1]}.${elePart[0]}`);
+				// FileUtils.touchFile(`.ele/${elePart[1]}.${elePart[0]}`);
 			});
 		}
 		return EdoCache.addSha1Object(Buffer.from(output.join('\n')), EdoCache.OBJ_LIST);

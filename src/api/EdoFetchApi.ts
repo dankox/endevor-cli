@@ -8,6 +8,7 @@ import { CsvUtils } from "./utils/CsvUtils";
 import { EdoCache } from "./EdoCache";
 import { IEdoIndex, EdoIndex } from "./doc/IEdoIndex";
 import { HashUtils } from "./utils/HashUtils";
+import { AsyncUtils } from "./utils/AsyncUtils";
 
 /**
  * Endevor fetch remote stage to local
@@ -27,7 +28,7 @@ export class EdoFetchApi {
 	 * @param type of the files to fetch (`EdoCache.OBJ_BLOB` - elements, `EdoCache.OBJ_LOG` - print history?) default `EdoCache.OBJ_BLOB`
 	 * @param search in map if not in remote stage (use when trying to grab elements from higher location in the map, default `false`)
 	 */
-	public static async fetchRemote(config: ISettings, stage: string, files: string[] = [], type: string = EdoCache.OBJ_BLOB, search: boolean = false) {
+	public static async fetchRemote(config: ISettings, stage: string, files: string[] = [], type: string = EdoCache.OBJ_BLOB, search: boolean = false): Promise<IEdoIndex> {
 		let index: IEdoIndex;
 		let indexSha1: string | null = null;
 		let updateIdx: boolean = false;
@@ -38,7 +39,7 @@ export class EdoFetchApi {
 			stage = index.stgn;
 		}
 
-		// read index to load index_list
+		// read index, or create new empty one
 		indexSha1 = await FileUtils.readRefs(stage, true); // get remote index sha1
 		if (indexSha1 != null) {
 			index = await EdoCache.readIndex(indexSha1); // load remote index
@@ -47,15 +48,24 @@ export class EdoFetchApi {
 			index = EdoIndex.init(stage); // init empty index with stage name
 		}
 
-		// for no files passed, fetch index from Endevor and pick files from it
+		// ----------------------------------------------------[===
+		process.stdout.write(`fetching index for <${stage}>    `);
 		if (files.length == 0) {
+			// for no files passed, fetch index from Endevor and pick files from it
 			updateIdx = await EdoFetchApi.fetchIndex(config, index);
 			files = EdoCache.getFiles(index, "fingerprint=null"); // get files with no fingerprint
 		} else {
-			// Check correct file format
-			for (const file of files) {
-				if (!file.match(/^[0-9A-Za-z]+\/.+$/)) {
-					throw new Error(`File ${file} doesn't match typeName/elementName format!`);
+			// files passed, fetch index and filter it to contain files specified
+			updateIdx = await EdoFetchApi.fetchIndex(config, index, files);
+
+			if (!search) {
+				files = EdoCache.getFiles(index, "fingerprint=null");
+			} else {
+				// Check correct file format
+				for (const file of files) {
+					if (!file.match(/^[0-9A-Za-z]+\/.+$/)) {
+						throw new Error(`File ${file} doesn't match typeName/elementName format!`);
+					}
 				}
 			}
 		}
@@ -64,9 +74,30 @@ export class EdoFetchApi {
 		if (files.length > 0) {
 			// fetch element files
 			if (type == EdoCache.OBJ_BLOB) {
-				process.stdout.write("fetching elements...");
-				let fetchedKeys: (string[] | null)[] = await Promise.all(files.map(item => EdoFetchApi.fetchElement(config, stage, item, search)));
-				console.log(" "); // new line to console log
+				// ----------------------------------------------------[===
+				process.stdout.write(`fetching elements for <${stage}> `);
+				let fetchedKeys: (string[] | null)[] = await AsyncUtils.promiseAll(files.map(item => EdoFetchApi.fetchElement(config, stage, item, search)), AsyncUtils.progressBar);
+
+				// filter nulls from fetchedKeys for fetching bases
+				let baseFiles: string[] = [];
+				const types = await EdoCache.readTypes(index.type);
+				for (const fetched of Object.values(fetchedKeys)) {
+					if (fetched) {
+						const type = fetched[4].split(FileUtils.separator);
+						if (types[type[0]][0] == 'T') {
+							baseFiles.push(fetched[4]);
+						}
+					}
+				}
+				// ----------------------------------------------------[===
+				process.stdout.write(`fetching bases for <${stage}>    `);
+				let baseKeys: (string[] | null)[] = await AsyncUtils.promiseAll(baseFiles.map(item => EdoFetchApi.fetchElement(config, stage, item, search, index.elem[item][5])), AsyncUtils.progressBar);
+
+				let bases: { [key: string]: string } = {};
+				for (const baseKey of baseKeys) {
+					if (isNullOrUndefined(baseKey)) continue;
+					bases[baseKey[4]] = baseKey[0];
+				}
 
 				// update index with new sha1 and fingerprint
 				fetchedKeys.forEach(fetchKey => {
@@ -75,21 +106,32 @@ export class EdoFetchApi {
 						// for existing index key, save 3rd field (hsha1)
 						fetchKey[3] = index.elem[fetchKey[4]][3];
 					}
+					// for fetched base, use it as remote/base sha1 in index
+					if (!isNullOrUndefined(bases[fetchKey[4]])) {
+						fetchKey[1] = bases[fetchKey[4]];
+					}
 					index.elem[fetchKey[4]] = fetchKey;
 					updateIdx = true;
 				});
 			}
 		}
+		index.stat = 'remote'; // TODO: ??? to mark as remote ???
 
 		if (updateIdx) {
 			// write index for remote stage (fetch doesn't work on local stage)
-			console.log(`writing index for remote ${stage}...`);
+			console.log(`writing index for remote/${stage}...`);
 			indexSha1 = await EdoCache.writeIndex(index);
 			if (indexSha1 != null) FileUtils.writeRefs(stage, indexSha1, true); // update refs
-			console.log(`fetch of ${stage} done!`);
+			console.log(`fetch of remote/${stage} done!\nrun 'edo merge' to merge it into local...`);
+			if (files.length == 0) {
+				console.log("no files in remote stage!");
+			}
 		} else {
 			console.log(`nothing to update...`);
 		}
+
+		// return index if this function should be used more complex scenario
+		return index;
 	}
 
 	/**
@@ -103,14 +145,17 @@ export class EdoFetchApi {
 	 *
 	 * @param config ISettings with repo URL and credentials
 	 * @param index passed to update with lists from remote repo (Endevor)
+	 * @param filterFiles list of files which should be included in index (to not include all from the element list).
+	 * By default it's empty `[]`, which means no filter.
 	 */
-	public static async fetchIndex(config: ISettings, index: IEdoIndex) {
+	public static async fetchIndex(config: ISettings, index: IEdoIndex, filterFiles: string[] = []) {
 		let updated: boolean = false;
+		// TODO: getElementList could do list ele data=ele, to grab change levels instead of list to create fingerprint list
 		// get element list and fetch types to database
-		let [ eleList, typeSha1 ] = await Promise.all([
+		let [ eleList, typeSha1 ] = await AsyncUtils.promiseAll([
 			EdoFetchApi.getElementList(config, index.stgn),
 			EdoFetchApi.fetchTypes(config, index.stgn)
-		]);
+		], AsyncUtils.progressBar);
 
 		if (index.type != typeSha1) {
 			index.type = typeSha1;
@@ -118,24 +163,38 @@ export class EdoFetchApi {
 		}
 
 		if (!isNullOrUndefined(eleList)) {
-			let index_list = index.elem;
 			eleList.forEach((ele: IEleList) => {
 				const key = `${ele.typeName}${FileUtils.separator}${ele.fullElmName}`;
-				if (!isNullOrUndefined(index_list[key])) {
-					let tmpItem = index_list[key]; // lsha1,rsha1,fingerprint,hsha1,typeName/fullElmName (new version)
+				if (filterFiles.length > 0 && filterFiles.indexOf(key) == -1) return; // skip if not in filter (when it is passed)
+
+				// get base vvll
+				let baseVVLL = ele.baseVVLL;
+				if (baseVVLL.length == 3) {
+					baseVVLL = baseVVLL.substr(0, 2) + "0" + baseVVLL.substr(2);
+				}
+				// for the same base as last, set null to not retrieve
+				if (baseVVLL == ele.elmVVLL) {
+					baseVVLL = 'null';
+				}
+
+				if (!isNullOrUndefined(index.elem[key])) {
+					// TODO: if we have fingerprint list, the fingerprint field should contain sha1 for fingerprint list
+					let tmpItem = index.elem[key]; // lsha1,rsha1,fingerprint,hsha1,typeName/fullElmName (new version)
 					if (tmpItem[2] != ele.fingerprint) {
 						tmpItem[2] = "null"; // nullify fingerprint for pull (it pulls only null fingerprint)
 						updated = true;
 					}
 				} else {
 					// for non-existent index key, create new one
-					index_list[key] = [`lsha1`, `rsha1`, `null`, `null`, key];
+					index.elem[key] = [`lsha1`, `rsha1`, `null`, `null`, key];
 					updated = true;
 				}
+				index.elem[key][5] = baseVVLL;
 			});
 		} else {
 			// TODO: do I care? should I update index??? all elements deleted??
-			console.error("list of elements is empty!!! (DELETED???)");
+			// console.error("list of elements is empty!!! (DELETED???)");
+			index.elem = {};
 		}
 
 		// set status on index to updated
@@ -154,12 +213,10 @@ export class EdoFetchApi {
 	public static async getElementList(config: ISettings, stage: string): Promise<any[]> {
 		let stageParts = stage.split('-');
 		let listHead = EndevorRestApi.getJsonHeader(config);
-		const listEle = `env/${stageParts[0]}/stgnum/${stageParts[1]}/sys/${stageParts[2]}/subsys/${stageParts[3]}/type/*/ele?data=BAS`; // basic is enough
+		const listEle = `env/${stageParts[0]}/stgnum/${stageParts[1]}/sys/${stageParts[2]}/subsys/${stageParts[3]}/type/*/ele`; // not enough need baseVVLL ?data=BAS`; // basic is enough
 
-		console.log(`getting element list for ${stage}...`);
 		try {
 			const response: IRestResponse = await EndevorRestApi.getHttp(config.repoURL + listEle, listHead);
-			console.log("element list obtained...");
 			let resBody;
 			try {
 				resBody = JSON.parse(response.body);
@@ -189,19 +246,21 @@ export class EdoFetchApi {
 	 * @param stage string in format `env-stgnum-system-subsystem`
 	 * @param element name in format `typeName/eleName` (last item in index list)
 	 * @param search in map if not in remote stage (use when trying to grab elements from higher location in the map, default `false`)
+	 * @param vvll version and level of element to fetch (retrieve)
 	 * @returns string `sha1,fingerprint,element`
 	 */
-	public static async fetchElement(config: ISettings, stage: string, element: string, search: boolean = false): Promise<string[] | null> {
+	public static async fetchElement(config: ISettings, stage: string, element: string, search: boolean = false, vvll?: string): Promise<string[] | null> {
+		if (!isNullOrUndefined(vvll) && vvll == 'null') return null; // don't fetch if vvll=null (we don't want that)
 		let stageParts = stage.split('-');
 		let elemParts = CsvUtils.splitX(element, FileUtils.separator, 1);
 		let binHead = EndevorRestApi.getBinaryHeader(config);
 		let eleURL = `env/${stageParts[0]}/stgnum/${stageParts[1]}/sys/${stageParts[2]}/subsys/${stageParts[3]}/`
 			+ `type/${encodeURIComponent(elemParts[0])}/ele/${encodeURIComponent(elemParts[1])}?noSignout=yes`;
+		if (!isNullOrUndefined(vvll)) eleURL += `&version=${vvll.substr(0, 2)}&level=${vvll.substr(2)}`;
 		if (search)	eleURL += "&search=yes";
 
 		try {
 			const response: IRestResponse = await EndevorRestApi.getHttp(config.repoURL + eleURL, binHead);
-			process.stdout.write('.'); // TODO: what to do with this output :) it's in api...
 
 			let jsonBody;
 			// check if error, or not found
@@ -245,9 +304,7 @@ export class EdoFetchApi {
 		let listHead = EndevorRestApi.getJsonHeader(config);
 		const listType = `env/${stageParts[0]}/stgnum/${stageParts[1]}/sys/${stageParts[2]}/type`;
 
-		console.log(`getting type list for ${stage}...`);
 		const response: IRestResponse = await EndevorRestApi.getHttp(config.repoURL + listType, listHead);
-		console.log("type list obtained...");
 		let resBody;
 		try {
 			resBody = JSON.parse(response.body);
