@@ -1,0 +1,84 @@
+import yargs from "yargs";
+import { FileUtils } from "../api/utils/FileUtils";
+import { isNullOrUndefined } from "util";
+import { EdoDiffApi } from "../api/EdoDiffApi";
+
+/**
+ * Edo diff files in working directory with checked out stage
+ */
+export class EdoDiff {
+	private static readonly edoDiffFile : yargs.PositionalOptions = {
+		describe: 'File name which you want to diff with local/remote stage'
+	};
+
+	private static readonly edoDiffCached : yargs.Options = {
+		describe: 'Diff commited changes with remote changes (local stage with remote stage)',
+		demand: false,
+		boolean: true,
+		conflicts: "remote",
+		alias: 'c'
+	};
+
+	private static readonly edoDiffRemote : yargs.Options = {
+		describe: 'Diff working directory against remote changes',
+		demand: false,
+		boolean: true,
+		conflicts: "cached",
+		alias: 'r'
+	};
+
+	public static edoDiffOptions = {
+		file: EdoDiff.edoDiffFile,
+		cached: EdoDiff.edoDiffCached,
+		remote: EdoDiff.edoDiffRemote
+	};
+
+
+	/**
+	 *
+	 * @param argv
+	 */
+	public static async process(argv: any) {
+		let stage: string = await FileUtils.readStage();
+
+		// cached, it's always commited changes against remote version
+		let cached: boolean = !isNullOrUndefined(argv.cached) ? argv.cached : false;
+		// remote, workdir file against remote version
+		let remote: boolean = !isNullOrUndefined(argv.remote) ? argv.remote : false;
+
+		// get changes in the working directory against local stage
+		const changes = await EdoDiffApi.getFileDiff(stage);
+		const files = Object.keys(changes);
+		let hasChanges: boolean = false;
+
+		for (const key of files) {
+			const output: string[] = await EdoDiffApi.diff(key, changes[key]);
+			if (output.length > 0) {
+				hasChanges = true;
+				// show diff output
+				let colors = true;
+				if (!colors) {
+					console.log(output.join("\n"));
+				} else {
+					for (let line of output) {
+						if (line[0] == ' ') {
+							console.log(line); // normal
+						} else if (line[0] == '=' || line.startsWith('--- ') || line.startsWith('+++ ')) {
+							console.log('\x1b[1m\x1b[37m%s\x1b[0m', line); // white
+						} else if (line[0] == '-') {
+							console.log('\x1b[31m%s\x1b[0m', line); // red
+						} else if (line[0] == '+') {
+							console.log('\x1b[32m%s\x1b[0m', line); // green
+						}
+					}
+				}
+			}
+		} // for-end
+
+		if (!hasChanges) {
+			console.log("no changes in working directory!");
+			process.exit(0);
+		}
+	}
+
+}

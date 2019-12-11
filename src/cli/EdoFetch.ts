@@ -6,7 +6,7 @@ import { EdoFetchApi } from "../api/EdoFetchApi";
 import { EdoCache } from "../api/EdoCache";
 
 /**
- * Endevor fetch remote stage to local
+ * Edo fetch remote stage to local
  */
 export class EdoFetch {
 	private static readonly edoFetchAllOption : yargs.Options = {

@@ -83,8 +83,10 @@ export class FileUtils {
 
 	/**
 	 * Read STAGE and get sha1 for index or name if not existing
+	 *
+	 * @param nameOnly if set to true, it will return name of the stage only (not sha1)
 	 */
-	public static async readStage(): Promise<string> {
+	public static async readStage(nameOnly: boolean = false): Promise<string> {
 		if (!await FileUtils.isEdoDir()) {
 			throw new Error("Not endevor repo directory!");
 		}
@@ -97,7 +99,7 @@ export class FileUtils {
 			throw new Error("STAGE file compromised! Do checkout to correct.");
 		}
 		// check if stage checked out by sha1 id
-		if (HashUtils.isSha1(fileStr)) {
+		if (nameOnly || HashUtils.isSha1(fileStr)) {
 			return fileStr; // get back the sha1 of stage/index
 		}
 		// otherwise go to refs and find sha1
@@ -116,12 +118,15 @@ export class FileUtils {
 	/**
 	 * Read refs file (either location name, or tag) and get sha1 from it
 	 *
-	 * @param ref name of stage/tag to write
+	 * @param ref name of stage/tag to read (if name starts with `remote/`, it is considered remote)
 	 * @param remote specify remote or local refs (`true` for remote), (default `false`)
 	 */
 	public static async readRefs(ref: string, remote: boolean = false): Promise<string | null> {
 		let refPath = `${FileUtils.getEdoDir()}/${FileUtils.refsDir}/${ref}`;
+
+		if (ref.startsWith('remote/')) refPath = `${FileUtils.getEdoDir()}/${FileUtils.refsDir}/${FileUtils.remoteRefsDir}/${ref.substr(7)}`;
 		if (remote) refPath = `${FileUtils.getEdoDir()}/${FileUtils.refsDir}/${FileUtils.remoteRefsDir}/${ref}`;
+
 		if (await FileUtils.exists(refPath)) {
 			return (await FileUtils.readFile(refPath)).toString();
 		} else {
@@ -218,19 +223,28 @@ export class FileUtils {
 		});
 	}
 
-	public static generalReadFile(path: string, binary: boolean = false, fileType?: string): Promise<string | Buffer> {
-		return new Promise<string | Buffer>((resolve, reject) => {
-			fs.readFile(path, (err, data) => {
-				if (err) {
-					reject(err);
+	/**
+	 * List repo directories and return back file list.
+	 *
+	 * File list is in format `[ 'type/elem', 'type/elem' ]`
+	 *
+	 * @param dirs list of directories to read
+	 */
+	public static async listRepoDirs(dirs: string[]): Promise<string[]> {
+		let files: string[] = [];
+
+		for (const dir of dirs) {
+			try {
+				const dirFiles: string[] = await FileUtils.readdir(`${FileUtils.cwdEdo}/${dir}`);
+				for (const dfile of dirFiles) {
+					files.push(`${dir}${FileUtils.separator}${dfile}`);
 				}
-				if (binary) {
-					resolve(data);
-				} else {
-					resolve(data.toString("utf8"));
-				}
-			});
-		});
+			} catch (err) {
+				// Don't care, directories don't have to exist
+				// console.error(`Error reading directory ${dir}\n${err.message}`);
+			}
+		}
+		return files;
 	}
 
 	public static mkdir(path: string): Promise<void> {

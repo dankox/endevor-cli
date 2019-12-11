@@ -6,7 +6,7 @@ import { EdoCache } from '../api/EdoCache';
 import { ISettings } from '../api/doc/ISettings';
 
 /**
- * Endevor pull sources from remote location
+ * Edo merge remote stage to local stage
  */
 export class EdoMerge {
 	private static readonly edoMergeFile : yargs.PositionalOptions = {

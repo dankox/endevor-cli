@@ -6,7 +6,7 @@ import { EdoFetchApi } from '../api/EdoFetchApi';
 import { EdoMergeApi } from '../api/EdoMergeApi';
 
 /**
- * Endevor pull sources from remote location
+ * Edo pull, meaning do fetch and merge together
  */
 export class EdoPull {
 	private static readonly edoPullFile : yargs.Options = {

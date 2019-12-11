@@ -1,5 +1,5 @@
 import { FileUtils } from "./utils/FileUtils";
-import { HashUtils as hash } from "./utils/HashUtils";
+import { HashUtils } from "./utils/HashUtils";
 import { isNullOrUndefined } from "util";
 import { EdoCache } from "./EdoCache";
 import { IEdoIndex } from "./doc/IEdoIndex";
@@ -48,7 +48,7 @@ export class EdoCheckoutApi {
 					}
 					let lsha1 = '';
 					try {
-						lsha1 = await hash.getEdoFileHash(file);
+						lsha1 = await HashUtils.getEdoFileHash(FileUtils.cwdEdo + file);
 					} catch (err) {
 						// error while reading file, so don't push it.
 						continue;

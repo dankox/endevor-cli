@@ -78,13 +78,13 @@ export class EdoFetchApi {
 			if (type == EdoCache.OBJ_BLOB) {
 				// ----------------------------------------------------[===
 				process.stdout.write(`fetching elements for <${stage}> `);
-				let fetchedKeys: (string[] | null)[] = await AsyncUtils.promiseAll(files.map(item => EdoFetchApi.fetchElement(config, stage, item, search)), AsyncUtils.progressBar);
+				let fetchedKeys: string[][] = await AsyncUtils.promiseAll(files.map(item => EdoFetchApi.fetchElement(config, stage, item, search)), AsyncUtils.progressBar);
 
 				// filter nulls from fetchedKeys for fetching bases
 				let baseFiles: string[] = [];
 				const types = await EdoCache.readTypes(index.type);
 				for (const fetched of Object.values(fetchedKeys)) {
-					if (fetched) {
+					if (fetched[0] != 'null') {
 						const type = fetched[4].split(FileUtils.separator);
 						if (types[type[0]][0] == 'T') {
 							baseFiles.push(fetched[4]);
@@ -93,17 +93,20 @@ export class EdoFetchApi {
 				}
 				// ----------------------------------------------------[===
 				process.stdout.write(`fetching bases for <${stage}>    `);
-				let baseKeys: (string[] | null)[] = await AsyncUtils.promiseAll(baseFiles.map(item => EdoFetchApi.fetchElement(config, stage, item, search, index.elem[item][5])), AsyncUtils.progressBar);
+				let baseKeys: string[][] = await AsyncUtils.promiseAll(baseFiles.map(item => EdoFetchApi.fetchElement(config, stage, item, search, index.elem[item][5])), AsyncUtils.progressBar);
 
 				let bases: { [key: string]: string } = {};
 				for (const baseKey of baseKeys) {
-					if (isNullOrUndefined(baseKey)) continue;
+					if (baseKey[0] == 'null') continue;
 					bases[baseKey[4]] = baseKey[0];
 				}
 
 				// update index with new sha1 and fingerprint
 				fetchedKeys.forEach(fetchKey => {
-					if (isNullOrUndefined(fetchKey)) return; // skip nulls
+					if (fetchKey[0] == 'null') {
+						delete index.elem[fetchKey[4]]; // remove from index (deleted in remote)
+						return;
+					}
 					if (!isNullOrUndefined(index.elem[fetchKey[4]])) {
 						// for existing index key, save 3rd field (hsha1)
 						fetchKey[3] = index.elem[fetchKey[4]][3];
@@ -254,10 +257,10 @@ export class EdoFetchApi {
 	 * @param element name in format `typeName/eleName` (last item in index list)
 	 * @param search in map if not in remote stage (use when trying to grab elements from higher location in the map, default `false`)
 	 * @param vvll version and level of element to fetch (retrieve)
-	 * @returns string `sha1,fingerprint,element`
+	 * @returns array `[ sha1, sha1, fingerprint, null, element ]`, if not found or error `[ null, null, null, null, element ]`
 	 */
-	public static async fetchElement(config: ISettings, stage: string, element: string, search: boolean = false, vvll?: string): Promise<string[] | null> {
-		if (!isNullOrUndefined(vvll) && vvll == 'null') return null; // don't fetch if vvll=null (we don't want that)
+	public static async fetchElement(config: ISettings, stage: string, element: string, search: boolean = false, vvll?: string): Promise<string[]> {
+		if (!isNullOrUndefined(vvll) && vvll == 'null') return [ 'null', 'null', 'null', 'null', element ]; // don't fetch if vvll=null (we don't want that)
 		let stageParts = stage.split('-');
 		let elemParts = CsvUtils.splitX(element, FileUtils.separator, 1);
 		let binHead = EndevorRestApi.getBinaryHeader(config);
@@ -277,14 +280,14 @@ export class EdoFetchApi {
 					jsonBody = JSON.parse(response.body);
 				} catch (err) {
 					console.error("json parsing error: " + err);
-					return null;
+					return [ 'null', 'null', 'null', 'null', element ];
 				}
 				if (response.status != 206) {
 					console.error(`Error obtaining element from url '${eleURL}':\n${jsonBody.messages}`);
 				} else {
 					console.warn(`Element '${element}' not found in stage '${stage}', re-run 'edo fetch' or 'edo fetch ${element}'`);
 				}
-				return null;
+				return [ 'null', 'null', 'null', 'null', element ];
 			}
 			// element obtained, write it into file
 			const body: Buffer = response.body;
@@ -294,7 +297,7 @@ export class EdoFetchApi {
 			return [ sha1, sha1, fingerprint, 'null', element ]; // index list format
 		} catch (err) {
 			console.error(`Exception when obtaining element '${element}' from stage '${stage}':\n${err}`);
-			return null;
+			return [ 'null', 'null', 'null', 'null', element ];
 		}
 	}
 
