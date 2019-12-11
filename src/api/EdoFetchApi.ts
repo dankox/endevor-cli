@@ -28,7 +28,9 @@ export class EdoFetchApi {
 	 * @param type of the files to fetch (`EdoCache.OBJ_BLOB` - elements, `EdoCache.OBJ_LOG` - print history?) default `EdoCache.OBJ_BLOB`
 	 * @param search in map if not in remote stage (use when trying to grab elements from higher location in the map, default `false`)
 	 */
-	public static async fetchRemote(config: ISettings, stage: string, files: string[] = [], type: string = EdoCache.OBJ_BLOB, search: boolean = false): Promise<IEdoIndex> {
+	public static async fetchRemote(config: ISettings, stage: string, files: string[] = [], type: string = EdoCache.OBJ_BLOB,
+		search: boolean = false, hints: boolean = true): Promise<IEdoIndex> {
+
 		let index: IEdoIndex;
 		let indexSha1: string | null = null;
 		let updateIdx: boolean = false;
@@ -122,12 +124,17 @@ export class EdoFetchApi {
 			console.log(`writing index for remote/${stage}...`);
 			indexSha1 = await EdoCache.writeIndex(index);
 			if (indexSha1 != null) FileUtils.writeRefs(stage, indexSha1, true); // update refs
-			console.log(`fetch of remote/${stage} done!\nrun 'edo merge' to merge it into local...`);
-			if (files.length == 0) {
-				console.log("no files in remote stage!");
+			console.log(`fetch of remote/${stage} done!`);
+			if (hints) {
+				console.log(`run 'edo merge' to merge it into local...`);
+				if (files.length == 0) {
+					console.log("no files in remote stage!");
+				}
 			}
 		} else {
-			console.log(`nothing to update...`);
+			if (hints) {
+				console.log(`nothing to update...`);
+			}
 		}
 
 		// return index if this function should be used more complex scenario

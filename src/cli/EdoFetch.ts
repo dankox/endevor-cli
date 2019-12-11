@@ -54,8 +54,8 @@ export class EdoFetch {
 				await EdoFetchApi.fetchRemote(config, stage);
 			}
 		} catch (err) {
-			console.error("Error while running fetch!");
-			console.error(err);
+			console.error("\nError while running fetch!");
+			console.error(err.message);
 			process.exit(1);
 		}
 	}

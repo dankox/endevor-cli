@@ -32,5 +32,18 @@ export class EdoIndex {
 			elem: {}
 		};
 	}
+
+	/**
+	 * Clone EdoIndex but clear `stat` and `mesg` fields.
+	 *
+	 * @param stage IEdoIndex for clone
+	 * @returns cloned IEdoIndex
+	 */
+	public static clone(stage: IEdoIndex): IEdoIndex {
+		const cloned: IEdoIndex = JSON.parse(JSON.stringify(stage));
+		cloned.stat = '';
+		cloned.mesg = '';
+		return cloned;
+	}
 }
 
