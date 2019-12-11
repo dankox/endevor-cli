@@ -48,10 +48,10 @@ export class EdoStatus {
 		if (!isNullOrUndefined(argv.porcelain)) porcelain = true;
 
 		const stage: string = await FileUtils.readStage();
-		const lIndex = await EdoCache.readIndex(stage);
-		const rsha1 = await FileUtils.readRefs(lIndex.stgn, true);
 
 		if (!porcelain) {
+			const lIndex = await EdoCache.readIndex(stage);
+			const rsha1 = await FileUtils.readRefs(lIndex.stgn, true);
 			console.log(`On stage ${lIndex.stgn}`);
 
 			if (rsha1 != null) {
@@ -106,9 +106,10 @@ export class EdoStatus {
 		} // for-end
 
 		if (!hasChanges) {
-			if (!porcelain)
-				console.log("no changes in working directory!");
+			// if (!porcelain)
+			// 	console.log("no changes in working directory!");
 		} else if (porcelain) {
+			// parsable output for scripts
 			for (const file of untracked) {
 				console.log(file);
 			}

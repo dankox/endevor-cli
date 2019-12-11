@@ -120,6 +120,7 @@ export class FileUtils {
 	 *
 	 * @param ref name of stage/tag to read (if name starts with `remote/`, it is considered remote)
 	 * @param remote specify remote or local refs (`true` for remote), (default `false`)
+	 * @returns sha1 from refs file or `null` if not found
 	 */
 	public static async readRefs(ref: string, remote: boolean = false): Promise<string | null> {
 		let refPath = `${FileUtils.getEdoDir()}/${FileUtils.refsDir}/${ref}`;

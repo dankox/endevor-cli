@@ -84,15 +84,17 @@ export class EdoMergeApi {
 		let mergedFiles = await EdoMergeApi.mergeStages(indexLocal, indexRemote);
 		let mergedKeys = Object.keys(mergedFiles);
 		let allMerged: boolean = true;
-		let noUpdates: boolean = false;
+		let noUpdates: boolean = true;
 		for (const file of mergedKeys) {
 			if (mergedFiles[file] == MergeUtils.STATUS_CONFLICT) {
 				allMerged = false;
+				noUpdates = false;
 				console.log(`conflict detected in file ${file}...`);
 			} else if (mergedFiles[file] == MergeUtils.STATUS_DELETED) {
 				console.log(`file ${file} deleted in remote...`);
-			} else if (mergedFiles[file] == MergeUtils.STATUS_UP2DATE) {
-				noUpdates = true;
+				noUpdates = false;
+			} else if (mergedFiles[file] == MergeUtils.STATUS_MERGED) {
+				noUpdates = false;
 			}
 		}
 

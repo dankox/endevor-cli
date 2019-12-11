@@ -38,28 +38,31 @@ export class EdoDiffApi {
 		let newBuf: string;
 
 		if (whatToDiff[0] == 'file') {
-			newBuf = (await FileUtils.readFile(FileUtils.cwdEdo + file, trimTrailingSpace)).toString();
+			newBuf = (await FileUtils.readFile(FileUtils.cwdEdo + file)).toString();
 		} else {
 			newBuf = (await EdoCache.getSha1Object(whatToDiff[0], EdoCache.OBJ_BLOB)).toString();
 			newBuf = MergeUtils.trimTrailSpace(newBuf);
 		}
 		if (whatToDiff[1] == 'file') {
-			oldBuf = (await FileUtils.readFile(FileUtils.cwdEdo + file, trimTrailingSpace)).toString();
+			oldBuf = (await FileUtils.readFile(FileUtils.cwdEdo + file)).toString();
 		} else {
 			oldBuf = (await EdoCache.getSha1Object(whatToDiff[1], EdoCache.OBJ_BLOB)).toString();
 			oldBuf = MergeUtils.trimTrailSpace(oldBuf);
 		}
 		if (oldBuf == newBuf) return [];
 
-		output.push(...jsdiff.createTwoFilesPatch(`a/${file}`, `b/${file}`, oldBuf, newBuf).split('\n'));
+		output.push(...jsdiff.createTwoFilesPatch(`a/${file}`, `b/${file}`, oldBuf, newBuf, '', '', { ignoreWhitespace: true }).split('\n'));
+		// TODO: check this, to provide hunks and lines numbers for better reference
+		// let parse: jsdiff.ParsedDiff = jsdiff.structuredPatch(`a/${file}`, `b/${file}`, oldBuf, newBuf, '', '', { ignoreWhitespace: true });
 		return output;
 	}
 
 	/**
-	 * Get a list of files with differences. Each file has two items, new version and old version.
+	 * Get a list of files with differences between working directory and stage, or
+	 * between two stages (if `oldStage` is specified).
 	 *
+	 * Each file has two items, new version and old version.
 	 * If that file doesn't exist in new or old version, it is referenced as `null`.
-	 *
 	 * If the file is in Edo database, it has sha1 reference. If it's work directory file, it has
 	 * keyword `file` specified.
 	 *
