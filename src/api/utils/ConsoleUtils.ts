@@ -5,6 +5,27 @@ import { EndevorRestApi } from "./EndevorRestApi";
 
 export class ConsoleUtils {
 	public static readonly auth: string = "auth";
+	public static readonly cLeft: string = "\x1b[D"; // left arrow
+
+	public static readonly cBlack: string = "\x1b[0;30m";
+	public static readonly cRed: string = "\x1b[0;31m";
+	public static readonly cGreen: string = "\x1b[0;32m";
+	public static readonly cYellow: string = "\x1b[0;33m";
+	public static readonly cBlue: string = "\x1b[0;34m";
+	public static readonly cPurple: string = "\x1b[0;35m";
+	public static readonly cCyan: string = "\x1b[0;36m";
+	public static readonly cGray: string = "\x1b[0;37m";
+
+	public static readonly cDarkGrey: string = "\x1b[1;30m";
+	public static readonly cLRed: string = "\x1b[1;31m";
+	public static readonly cLGreen: string = "\x1b[1;32m";
+	public static readonly cLYellow: string = "\x1b[1;33m";
+	public static readonly cLBlue: string = "\x1b[1;34m";
+	public static readonly cLPurple: string = "\x1b[1;35m";
+	public static readonly cLCyan: string = "\x1b[1;36m";
+	public static readonly cWhite: string = "\x1b[1;37m";
+
+	public static readonly cReset: string = "\x1b[0m";
 
 	public static promptValue(prompt: string, defaultValue?: string): Promise<string> {
 		let options = {

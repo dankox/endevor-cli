@@ -5,6 +5,7 @@ import { IEdoIndex } from "./doc/IEdoIndex";
 import { CsvUtils } from "./utils/CsvUtils";
 import { EdoDiffApi } from "./EdoDiffApi";
 import * as path from "path";
+import { ConsoleUtils } from "./utils/ConsoleUtils";
 
 /**
  * Endevor checkout stage (on local)
@@ -39,7 +40,7 @@ export class EdoCheckoutApi {
 					errMsg += `Changes detected in following files:\n`;
 					errMsg += `  (use 'edo restore [files]...' to discard changes in working directory)\n`;
 					errMsg += `  (use 'edo commit -a' or 'edo commit <files>...' to commit changes)\n`;
-					errMsg += `   \x1b[31m${difFiles.join(', ')}\x1b[0m\n`;
+					errMsg += `   ${ConsoleUtils.cRed}${difFiles.join(', ')}${ConsoleUtils.cReset}`;
 					throw new Error("You have to save or discard your changes before checkout other stage!\n" + errMsg);
 				}
 				// remove files
@@ -96,9 +97,22 @@ export class EdoCheckoutApi {
 	 * @param files list of files (in format `typeName/eleName`) to limit checkout
 	 */
 	public static async checkoutFiles(index: IEdoIndex, files: string[] = []) {
-		let lines = Object.values(index.elem);
+		// delete files which doesn't exists when files specified
+		if (files.length > 0) {
+			let idxFiles = Object.keys(index.elem);
+			let delFiles = files.filter(f => !idxFiles.includes(f));
+			for (const file of delFiles) {
+				try {
+					await FileUtils.unlink(FileUtils.cwdEdo + file);
+				} catch (err) {
+					console.error(`Error while discarding local version of '${file}'! ` + err.message);
+				}
+			}
+		}
 
-		for (const item of lines) {
+		// checkout files from index
+		let idxLines = Object.values(index.elem);
+		for (const item of idxLines) {
 			// if files specified and current file is not in files, skip
 			if (files.length > 0 && files.indexOf(item[4]) == -1) continue;
 

@@ -3,6 +3,7 @@ import { FileUtils } from "../api/utils/FileUtils";
 import { isNullOrUndefined } from "util";
 import { EdoDiffApi } from "../api/EdoDiffApi";
 import { EdoCache } from "../api/EdoCache";
+import { ConsoleUtils } from "../api/utils/ConsoleUtils";
 import { HashUtils } from "../api/utils/HashUtils";
 
 /**
@@ -48,6 +49,10 @@ export class EdoStatus {
 		if (!isNullOrUndefined(argv.porcelain)) porcelain = true;
 
 		const stage: string = await FileUtils.readStage();
+		if (!HashUtils.isSha1(stage)) {
+			console.log("There is no index for this stage, run 'edo fetch' and 'edo merge', or just run 'edo pull'");
+			process.exit(0);
+		}
 
 		if (!porcelain) {
 			const lIndex = await EdoCache.readIndex(stage);
@@ -119,14 +124,14 @@ export class EdoStatus {
 				console.log(`  (use 'edo commit' or 'edo commit <file>...' to commit changes to local stage)`);
 				console.log(`  (use 'edo restore [files]...' to discard changes in working directory)`);
 				for (const file of modified) {
-					console.log('       \x1b[32m%s%s\x1b[0m', tModified, file); // green
+					console.log('       %s%s%s%s', ConsoleUtils.cGreen, tModified, file, ConsoleUtils.cReset); // green
 				}
 			}
 			if (untracked.length > 0) {
 				console.log('Untracked files:');
 				console.log(`  (use 'edo add/rm <file>...' or 'edo commit -a' to add to local stage)`);
 				for (const file of untracked) {
-					console.log('       \x1b[31m%s\x1b[0m', file.replace('A ', tAdded).replace('D ', tDeleted)); // red
+					console.log('       %s%s%s', ConsoleUtils.cRed, file.replace('A ', tAdded).replace('D ', tDeleted), ConsoleUtils.cReset); // red
 				}
 			}
 		}

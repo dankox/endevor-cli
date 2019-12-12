@@ -3,6 +3,7 @@ import { FileUtils as fu, FileUtils } from "../api/utils/FileUtils";
 import { EdoCheckoutApi } from "../api/EdoCheckoutApi";
 import { isNullOrUndefined } from "util";
 import { EdoCache } from "../api/EdoCache";
+import { HashUtils } from "../api/utils/HashUtils";
 
 /**
  * Endevor checkout stage (on local)
@@ -13,7 +14,7 @@ export class EdoDiscard {
 	};
 
 	public static edoDiscardOptions = {
-		file: EdoDiscard.edoDiscardFile
+		files: EdoDiscard.edoDiscardFile
 	};
 
 
@@ -25,6 +26,11 @@ export class EdoDiscard {
 		let files: string[] = [];
 		if (!isNullOrUndefined(argv.files)) files = argv.files;
 		let stage = await FileUtils.readStage();
+		if (!HashUtils.isSha1(stage)) {
+			console.log("There is no index for this stage, run 'edo fetch' and 'edo merge', or just run 'edo pull'");
+			process.exit(0);
+		}
+
 		let index = await EdoCache.readIndex(stage);
 
 		try {

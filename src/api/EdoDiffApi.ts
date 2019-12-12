@@ -41,17 +41,17 @@ export class EdoDiffApi {
 			newBuf = (await FileUtils.readFile(FileUtils.cwdEdo + file)).toString();
 		} else {
 			newBuf = (await EdoCache.getSha1Object(whatToDiff[0], EdoCache.OBJ_BLOB)).toString();
-			newBuf = MergeUtils.trimTrailSpace(newBuf);
+			if (trimTrailingSpace) newBuf = MergeUtils.trimTrailSpace(newBuf);
 		}
 		if (whatToDiff[1] == 'file') {
 			oldBuf = (await FileUtils.readFile(FileUtils.cwdEdo + file)).toString();
 		} else {
 			oldBuf = (await EdoCache.getSha1Object(whatToDiff[1], EdoCache.OBJ_BLOB)).toString();
-			oldBuf = MergeUtils.trimTrailSpace(oldBuf);
+			if (trimTrailingSpace) oldBuf = MergeUtils.trimTrailSpace(oldBuf);
 		}
 		if (oldBuf == newBuf) return [];
 
-		output.push(...jsdiff.createTwoFilesPatch(`a/${file}`, `b/${file}`, oldBuf, newBuf, '', '', { ignoreWhitespace: true }).split('\n'));
+		output.push(...jsdiff.createTwoFilesPatch(`a/${file}`, `b/${file}`, oldBuf, newBuf, '', '', { ignoreWhitespace: trimTrailingSpace }).split('\n'));
 		// TODO: check this, to provide hunks and lines numbers for better reference
 		// let parse: jsdiff.ParsedDiff = jsdiff.structuredPatch(`a/${file}`, `b/${file}`, oldBuf, newBuf, '', '', { ignoreWhitespace: true });
 		return output;
