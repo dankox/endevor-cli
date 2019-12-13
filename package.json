@@ -24,7 +24,6 @@
   },
   "homepage": "https://github.com/dankox/endevor-cli#readme",
   "dependencies": {
-    "@types/diff": "^4.0.2",
     "diff": "^4.0.1",
     "form-data": "^2.5.1",
     "graceful-fs": "^4.2.2",
@@ -37,6 +36,7 @@
     "yargs": "^14.0.0"
   },
   "devDependencies": {
+    "@types/diff": "^4.0.2",
     "@types/form-data": "^2.5.0",
     "@types/graceful-fs": "^4.1.3",
     "@types/mkdirp": "^0.5.2",

@@ -1,5 +1,5 @@
 import { EndevorRestApi } from "./utils/EndevorRestApi";
-import { FileUtils as fu } from './utils/FileUtils';
+import { FileUtils } from './utils/FileUtils';
 import { ISettings } from './doc/ISettings';
 import { CsvUtils } from "./utils/CsvUtils";
 
@@ -40,7 +40,7 @@ export class EdoInitApi {
 			repoURL: repoUrl,
 			cred64: cred64
 		};
-		await fu.writeSettings(settings);
+		await FileUtils.writeSettings(settings);
 
 		// setup subsystem map with currentStage,nextStage,entryStg(1/0)
 		await EdoInitApi.setupSubMap(settings);
@@ -64,11 +64,11 @@ export class EdoInitApi {
 			EdoInitApi.getSubMap(config)
 		]);
 
-		let stageMap = await CsvUtils.getDataFromCSV(fu.stageMapFile);
+		let stageMap = await CsvUtils.getDataFromCSV(FileUtils.stageMapFile);
 		// data example: RWRK-1,RWRK-2,1
-		let sysMap = await CsvUtils.getDataFromCSV(fu.sysMapFile);
+		let sysMap = await CsvUtils.getDataFromCSV(FileUtils.sysMapFile);
 		// data example: RWRK-1-IDMS190,IDMS190
-		let subMap = await CsvUtils.getDataFromCSV(fu.subMapFile);
+		let subMap = await CsvUtils.getDataFromCSV(FileUtils.subMapFile);
 		// data example: RWRK-1-IDMS190-DEFJE01P,LATTE
 
 		let output: string = "";
@@ -83,7 +83,7 @@ export class EdoInitApi {
 			const newSubLoc = `${stgVal[0]}-${sysNext}-` + (subloc[1] == '1' ? subloc[3] : subMap[keySub]);
 			output += `${keySub},${newSubLoc},${stgVal[1]}\n`;
 		});
-		return fu.writeFile(fu.edoDir + "/" + fu.subMapFile, Buffer.from(output));
+		return FileUtils.writeFile(FileUtils.getEdoDir() + "/" + FileUtils.subMapFile, Buffer.from(output));
 	}
 
 	/**

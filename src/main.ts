@@ -13,6 +13,7 @@ import { EdoCatFile } from './cli/EdoCatFile';
 import { EdoCommit } from './cli/EdoCommit';
 import { EdoDifftool } from './EdoDifftool';
 import { EdoPush } from './EdoPush';
+import { EdoShow } from './cli/EdoShow';
 
 yargs.usage('Usage: $0 <command> [options]')
 	.scriptName('edo')
@@ -30,5 +31,6 @@ yargs.usage('Usage: $0 <command> [options]')
 	.command('diff [file] [options]', 'Diff working directory against local stage, or remote, etc.', EdoDiff.edoDiffOptions, EdoDiff.process)
 	.command('difftool [file] [options]', 'Use difftool to diff files in working directory against local stage, or remote, etc.', EdoDifftool.edoDifftoolOptions, EdoDifftool.difftool)
 	.command('cat-file [file]', 'cat database file specified by sha1 identifier', EdoCatFile.edoCatOptions, EdoCatFile.process)
+	.command('show [object]', 'show object from edo database', EdoShow.edoShowOptions, EdoShow.process)
 	// .showHelpOnFail(false)
 	.help().demandCommand().argv;

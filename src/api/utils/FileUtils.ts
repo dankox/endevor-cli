@@ -160,7 +160,7 @@ export class FileUtils {
 		if (!await FileUtils.isEdoDir()) {
 			throw new Error("Not endevor repo directory!");
 		}
-		const buf: Buffer = await FileUtils.readFile(FileUtils.edoDir + "/" + FileUtils.configFile);
+		const buf: Buffer = await FileUtils.readFile(FileUtils.getEdoDir() + "/" + FileUtils.configFile);
 		return JSON.parse(buf.toString());
 	}
 
@@ -188,7 +188,7 @@ export class FileUtils {
 	 * @param sha1 file
 	 */
 	public static async readSha1file(sha1: string): Promise<IObject> {
-		let dirName = FileUtils.edoDir + '/' + FileUtils.objectDir + '/' + sha1.substr(0, 2);
+		let dirName = FileUtils.getEdoDir() + '/' + FileUtils.objectDir + '/' + sha1.substr(0, 2);
 		let data: Buffer = await FileUtils.readFile(dirName + '/' + sha1.substring(2));
 		return new Promise<IObject>((resolve, reject) => {
 			const dataStart: number = data.indexOf('\0');
@@ -215,7 +215,7 @@ export class FileUtils {
 	 * @param content buffer
 	 */
 	public static async writeSha1file(sha1: string, content: Buffer): Promise<void> {
-		let dirName = FileUtils.edoDir + '/' + FileUtils.objectDir + '/' + sha1.substr(0, 2);
+		let dirName = FileUtils.getEdoDir() + '/' + FileUtils.objectDir + '/' + sha1.substr(0, 2);
 		if (!await FileUtils.exists(dirName)) {
 			await FileUtils.mkdir(dirName);
 		}

@@ -114,6 +114,45 @@ export class EdoCache {
 	}
 
 	/**
+	 * Get index from history which is `backref` number from last index.
+	 *
+	 * Basically you will get index which is `backref` commit behind.
+	 *
+	 * @param stage name or sha1 which is starting point
+	 * @param backref number of times to go thru `index.prev`
+	 * @returns IEdoIndex
+	 */
+	public static async getIndex(stage: string, backref: number): Promise<IEdoIndex> {
+		let indexSha1: string = stage;
+		let index: IEdoIndex;
+
+		if (!HashUtils.isSha1(stage)) {
+			const sha1 = await FileUtils.readRefs(stage);
+			if (isNullOrUndefined(sha1)) {
+				throw new Error(`Stage ${stage} doesn't have index!`);
+			}
+			indexSha1 = sha1;
+		}
+
+		// get index
+		index = await EdoCache.readIndex(indexSha1);
+
+		// loop back thru index.prev to get to the correct index
+		for (let i = 0; i < backref; i++) {
+			if (index.prev != 'null' && (await EdoCache.sha1Exists(index.prev))) {
+				index = await EdoCache.readIndex(index.prev);
+			} else {
+				if ( (i + 1) == backref) {
+					index.prev = 'null'; // set to null in case sha1 doesn't exist (because of gc)
+					break; // if we are
+				}
+				throw new Error(`Invalid object name ${stage}~${backref}`);
+			}
+		}
+		return index;
+	}
+
+	/**
 	 * Get list of files in format `typeName/eleName` from provided index.
 	 *
 	 * Files can be filtered by using filter parameter in format `key=value`, where key

@@ -50,6 +50,7 @@ export class EdoStatus {
 
 		const stage: string = await FileUtils.readStage();
 		if (!HashUtils.isSha1(stage)) {
+			console.log(`On stage ${stage}`);
 			console.log("There is no index for this stage, run 'edo fetch' and 'edo merge', or just run 'edo pull'");
 			process.exit(0);
 		}
