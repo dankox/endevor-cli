@@ -43,6 +43,9 @@ export class EdoShow {
 		let stage: string = refs[1];
 		let backref: number = parseInt(refs[3]);
 		let file: string = refs[4];
+		if (refs[1] == 'remote/STAGE') {
+			stage = 'remote/' + (await FileUtils.readStage(true));
+		}
 		if (refs[1] == 'STAGE' || refs[1] == 'HEAD') {
 			stage = await FileUtils.readStage(true);
 		}
@@ -54,7 +57,7 @@ export class EdoShow {
 				process.exit(1);
 			}
 			let fileSha1 = index.elem[file][0];
-			if (index.prev == 'null') {
+			if (index.prev == 'base') {
 				fileSha1 = index.elem[file][1];
 			}
 			const out: Buffer = await EdoCache.getSha1Object(fileSha1, EdoCache.OBJ_BLOB);

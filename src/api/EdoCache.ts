@@ -143,7 +143,7 @@ export class EdoCache {
 				index = await EdoCache.readIndex(index.prev);
 			} else {
 				if ( (i + 1) == backref) {
-					index.prev = 'null'; // set to null in case sha1 doesn't exist (because of gc)
+					index.prev = 'base'; // set to base in case sha1 doesn't exist (because of gc)
 					break; // if we are
 				}
 				throw new Error(`Invalid object name ${stage}~${backref}`);
