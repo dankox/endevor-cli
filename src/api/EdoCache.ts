@@ -1,7 +1,7 @@
 import { IObject, FileUtils } from './utils/FileUtils';
 import { isNullOrUndefined } from 'util';
 import { IEdoIndex } from './doc/IEdoIndex';
-import { HashUtils } from '../utils/HashUtils';
+import { HashUtils } from './utils/HashUtils';
 import { CsvUtils } from './utils/CsvUtils';
 
 
