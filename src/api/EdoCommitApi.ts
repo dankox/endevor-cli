@@ -46,6 +46,8 @@ export class EdoCommitApi {
 		let diffs = await EdoDiffApi.getFileDiff(stage);
 		let diffFiles = Object.keys(diffs);
 		let updateIndex: boolean = false;
+		let mergeIndex: IEdoIndex | null = await EdoCache.readMergeIndex();
+		let conflictFiles: string[] = await FileUtils.getConflictFiles();
 
 		// iterate over changes and put them in index
 		for (const file of diffFiles) {
@@ -55,6 +57,12 @@ export class EdoCommitApi {
 			if (diffs[file][0] == 'null') {
 				if (!all) continue; // skip if option 'all' not set
 				delete index.elem[file];
+				updateIndex = true;
+				// remove from conflict files if presented
+				const confIdx = conflictFiles.indexOf(file);
+				if (confIdx != -1) {
+					conflictFiles.splice(confIdx, 1);
+				}
 				continue;
 			}
 
@@ -74,9 +82,18 @@ export class EdoCommitApi {
 			if (isAdd) {
 				index.elem[file] = [ fileSha1, fileSha1, 'null', 'null', file ];
 			} else {
-				index.elem[file] = [ fileSha1, tmpItem[0], tmpItem[2], tmpItem[3], file ];
+				if (isNullOrUndefined(mergeIndex) || isNullOrUndefined(mergeIndex.elem[file])) {
+					index.elem[file] = [ fileSha1, tmpItem[0], tmpItem[2], tmpItem[3], file ];
+				} else {
+					index.elem[file] = [ fileSha1, tmpItem[0], mergeIndex.elem[file][2], tmpItem[3], file ];
+				}
 			}
 			updateIndex = true;
+			// remove from conflict files if presented
+			const confIdx = conflictFiles.indexOf(file);
+			if (confIdx != -1) {
+				conflictFiles.splice(confIdx, 1);
+			}
 		}
 
 		if (updateIndex) {
@@ -84,6 +101,18 @@ export class EdoCommitApi {
 			const indexSha1 = await EdoCache.writeIndex(index);
 			if (indexSha1 != null) {
 				FileUtils.writeRefs(stage, indexSha1); // update refs
+				// if merge files were presented, deal with them
+				if (!isNullOrUndefined(mergeIndex) && conflictFiles.length == 0) {
+					try {
+						await FileUtils.unlink(`${FileUtils.getEdoDir()}/${FileUtils.mergeFile}`);
+						await FileUtils.unlink(`${FileUtils.getEdoDir()}/${FileUtils.mergeConflictFile}`);
+					} catch (err) {
+						console.error(`Error removing merge/conflict files! Do it manually = =`);
+					}
+				} else if (conflictFiles.length > 0) {
+					await FileUtils.writeFile(`${FileUtils.getEdoDir()}/${FileUtils.mergeConflictFile}`, Buffer.from(conflictFiles.join('\n')));
+					console.log(`There are still some conflicts remaining. Run 'edo status'...`);
+				}
 				console.log(`commit ${stage} done!`);
 				return;
 			}

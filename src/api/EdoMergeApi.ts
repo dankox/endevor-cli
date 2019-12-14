@@ -81,25 +81,24 @@ export class EdoMergeApi {
 		if (!localIndexExists) console.log("populating working directory...");
 		else console.log("merging working directory...");
 
-		let mergedFiles = await EdoMergeApi.mergeStages(indexLocal, indexRemote);
+		let mergedFiles = await EdoMergeApi.mergeStages(indexLocal, indexRemote, files);
 		let mergedKeys = Object.keys(mergedFiles);
 		let allMerged: boolean = true;
-		let noUpdates: boolean = true;
+		let hasUpdates: boolean = false;
+		let conflictFiles: string[] = [];
 		for (const file of mergedKeys) {
 			if (mergedFiles[file] == MergeUtils.STATUS_CONFLICT) {
 				allMerged = false;
-				noUpdates = false;
+				hasUpdates = true;
+				conflictFiles.push(file);
 				console.log(`conflict detected in file ${file}...`);
 			} else if (mergedFiles[file] == MergeUtils.STATUS_DELETED) {
 				console.log(`file ${file} deleted in remote...`);
-				noUpdates = false;
+				hasUpdates = true;
 			} else if (mergedFiles[file] == MergeUtils.STATUS_MERGED) {
-				noUpdates = false;
+				hasUpdates = true;
 			}
 		}
-
-		// write remote sha1 to MERGE file for further processing in commit (when changes will be confirmed)
-		await FileUtils.writeFile(`${FileUtils.getEdoDir()}/${FileUtils.mergeFile}`, Buffer.from(indexSha1Remote));
 
 		// write local index if it didn't exist before
 		if (!localIndexExists) {
@@ -108,14 +107,20 @@ export class EdoMergeApi {
 				throw new Error("Error... index is null!");
 			}
 			await FileUtils.writeRefs(stage, indexSha1Local);
+		} else if (hasUpdates) {
+			// write remote sha1 to MERGE file for further processing in commit and save conflicts for edo status
+			await FileUtils.writeFile(`${FileUtils.getEdoDir()}/${FileUtils.mergeFile}`, Buffer.from(indexSha1Remote));
+			if (conflictFiles.length > 0) {
+				await FileUtils.writeFile(`${FileUtils.getEdoDir()}/${FileUtils.mergeConflictFile}`, Buffer.from(conflictFiles.join('\n')));
+			}
 		}
 
 		if (allMerged) {
 			if (localIndexExists) {
-				if (noUpdates) {
-					console.log(`nothing to merge, stage is up to date...`);
-				} else {
+				if (hasUpdates) {
 					console.log(`stage merged in working directory... run 'edo commit' or review changes`);
+				} else {
+					console.log(`nothing to merge, stage is up to date...`);
 				}
 			} else {
 				console.log(`local index created...`);
@@ -129,8 +134,7 @@ export class EdoMergeApi {
 	 * Merge remote stage into local stage. Merge is done in working directory,
 	 * none of the indexes are updated (this should be handled by caller).
 	 *
-	 * Remote stage can be anything (even local stage), but is considered
-	 * as a remote so only lsha1 is used.
+	 * Remote stage can be anything (even local stage), but only lsha1 is used.
 	 *
 	 * Local stage is checked out stage (or any other) and lsha1 is taken
 	 * as local change and rsha1 is taken as base (for 3way merge).
@@ -151,34 +155,40 @@ export class EdoMergeApi {
 		}
 
 		let mergedFiles: {[key: string]: string} = {};
-		let localList: string[][] = Object.values(local.elem);
-		// if no local list, grab remote instead
-		if (localList.length == 0) {
-			localList = Object.values(remote.elem);
-		}
+		let fileList: string[] = [...new Set([...Object.keys(local.elem), ...Object.keys(remote.elem)])];
 
 		// loop thru index files for merge
-		for (let localItem of localList) {
-			// lsha1,rsha1,fingerprint,hsha1,typeName/fullElmName
-			const element = localItem[4]; // type/element
-
+		for (let file of fileList) {
 			// if files provided check if we want to merge it
 			if (files.length > 0) {
-				if (files.indexOf(element) == -1) continue; // skip for not included
+				if (files.indexOf(file) == -1) continue; // skip for not included
 			}
 
 			// If deleted
-			if (isNullOrUndefined(remote.elem[element])) {
-				mergedFiles[element] = MergeUtils.STATUS_DELETED;
+			if (isNullOrUndefined(remote.elem[file])) {
+				mergedFiles[file] = MergeUtils.STATUS_DELETED;
+				// TODO: should remove in working directory????
 				continue; // skip if remote doesn't have
 			}
 
-			let wdFile = (isNullOrUndefined(outDirectory) ? FileUtils.cwdEdo : outDirectory) + element;
+			// If added
+			if (isNullOrUndefined(local.elem[file])) {
+				mergedFiles[file] = MergeUtils.STATUS_MERGED;
+				// clone it in local index (no fingerprint) and go for merge
+				local.elem[file] = [ remote.elem[file][0], remote.elem[file][1], 'null', remote.elem[file][3], file ];
+			}
+
+			let wdFile = (isNullOrUndefined(outDirectory) ? FileUtils.cwdEdo : outDirectory) + file;
 			const workExist: boolean = await FileUtils.exists(wdFile);
-			// [ lsha1, rsha1, fingerprint, hsha1, typeName/fullElmName ]
-			let localSha1  = localItem[0];
-			let baseSha1  = localItem[1];
-			let remoteSha1  = remote.elem[element][0];
+			let localSha1  = local.elem[file][0];
+			let baseSha1  = local.elem[file][1];
+			let remoteSha1  = remote.elem[file][0];
+
+			// If fingerprints match and work file exists
+			if (workExist && local.elem[file][2] == remote.elem[file][2]) {
+				mergedFiles[file] = MergeUtils.STATUS_UP2DATE;
+				continue;
+			}
 
 			// if workfile doesn't exist, or if we don't care about it
 			if (!workExist || !includeWd) {
@@ -186,9 +196,9 @@ export class EdoMergeApi {
 				if (localSha1 == remoteSha1) {
 					try {
 						await FileUtils.writeFile(wdFile, await EdoCache.getSha1Object(localSha1, EdoCache.OBJ_BLOB));
-						mergedFiles[element] = MergeUtils.STATUS_MERGED;
+						mergedFiles[file] = MergeUtils.STATUS_MERGED;
 					} catch (err) {
-						console.error(`Error while updating working directory file '${element}': ${err}`);
+						console.error(`Error while updating working directory file '${file}': ${err}`);
 					}
 					continue; // merge done! go next
 				} else {
@@ -197,9 +207,9 @@ export class EdoMergeApi {
 					if (baseSha1 == localSha1) {
 						try {
 							await FileUtils.writeFile(wdFile, await EdoCache.getSha1Object(remoteSha1, EdoCache.OBJ_BLOB));
-							mergedFiles[element] = MergeUtils.STATUS_MERGED;
+							mergedFiles[file] = MergeUtils.STATUS_MERGED;
 						} catch (err) {
-							console.error(`Error while updating working directory file '${element}': ${err}`);
+							console.error(`Error while updating working directory file '${file}': ${err}`);
 						}
 						continue; // merge done! go next
 					} else {
@@ -210,9 +220,9 @@ export class EdoMergeApi {
 						const tmpMerged: IMergedResult = MergeUtils.merge3bufs(baseBuf, localBuf, remoteBuf);
 						try {
 							await FileUtils.writeFile(wdFile, tmpMerged.buffer);
-							mergedFiles[element] = tmpMerged.status;
+							mergedFiles[file] = tmpMerged.status;
 						} catch (err) {
-							console.error(`Error while updating working directory file '${element}': ${err}`);
+							console.error(`Error while updating working directory file '${file}': ${err}`);
 						}
 						continue; // merge done! go next
 					}
@@ -224,13 +234,13 @@ export class EdoMergeApi {
 			try {
 				wsha1 = await HashUtils.getEdoFileHash(wdFile);
 			} catch (err) {
-				console.error(`Error occurs during read of file '${element}': ${err}`);
+				console.error(`Error occurs during read of file '${file}': ${err}`);
 				continue;
 			}
 
-			// same as remote, nothing to merge... (but mark as merged)
+			// same as remote, nothing to merge... (but mark as up to date)
 			if (wsha1 == remoteSha1) {
-				mergedFiles[element] = MergeUtils.STATUS_UP2DATE;
+				mergedFiles[file] = MergeUtils.STATUS_MERGED; // fingerprints are different...weird! :)
 				continue; // merge done! go next
 			}
 
@@ -238,13 +248,13 @@ export class EdoMergeApi {
 			if (baseSha1 == wsha1) {
 				try {
 					await FileUtils.writeFile(wdFile, await EdoCache.getSha1Object(remoteSha1, EdoCache.OBJ_BLOB));
-					mergedFiles[element] = MergeUtils.STATUS_MERGED;
+					mergedFiles[file] = MergeUtils.STATUS_MERGED;
 				} catch (err) {
-					console.error(`Error while updating working directory file '${element}': ${err}`);
+					console.error(`Error while updating working directory file '${file}': ${err}`);
 				}
 			} else if (baseSha1 == remoteSha1) {
 				// if wsha1 != base and base = remotesha1, then we are up to date (no changes required)
-				mergedFiles[element] = MergeUtils.STATUS_UP2DATE;
+				mergedFiles[file] = MergeUtils.STATUS_MERGED; // fingerprints are different!
 				continue; // merge done! go next
 			} else {
 				// if all sha1 different, do 3-way merge
@@ -254,9 +264,9 @@ export class EdoMergeApi {
 				const tmpMerged: IMergedResult = MergeUtils.merge3bufs(baseBuf, localBuf, remoteBuf);
 				try {
 					await FileUtils.writeFile(wdFile, tmpMerged.buffer);
-					mergedFiles[element] = tmpMerged.status;
+					mergedFiles[file] = tmpMerged.status;
 				} catch (err) {
-					console.error(`Error while updating working directory file '${element}': ${err}`);
+					console.error(`Error while updating working directory file '${file}': ${err}`);
 				}
 			}
 		}

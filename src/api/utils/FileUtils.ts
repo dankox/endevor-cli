@@ -178,6 +178,22 @@ export class FileUtils {
 	}
 
 	/**
+	 * Get files in conflict from merge action.
+	 * @returns empty array if no conflict files, or list of conflict files
+	 */
+	public static async getConflictFiles(): Promise<string[]> {
+		let mergeConflicts: string[] = [];
+		if (await FileUtils.exists(`${FileUtils.getEdoDir()}/${FileUtils.mergeConflictFile}`)) {
+			try {
+				mergeConflicts = (await FileUtils.readFile(`${FileUtils.getEdoDir()}/${FileUtils.mergeConflictFile}`)).toString().split('\n');
+			} catch (err) {
+				// If error, don't care, just won't update fingerprint
+			}
+		}
+		return mergeConflicts;
+	}
+
+	/**
 	 * Read SHA1 file from object directory: .edo/objects/sha1(0,2)/sha1(2,..)
 	 *
 	 * Read the content and return object with type, length, all data

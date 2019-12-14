@@ -90,6 +90,22 @@ export class EdoCache {
 	}
 
 	/**
+	 * Get index of stage which was merged (a.k.a remote stage) into working directory.
+	 * @returns either `null` if no stage was merged, or `IEdoIndex`
+	 */
+	public static async readMergeIndex(): Promise<IEdoIndex | null> {
+		if (await FileUtils.exists(`${FileUtils.getEdoDir()}/${FileUtils.mergeFile}`)) {
+			try {
+				const mergeSha1 = (await FileUtils.readFile(`${FileUtils.getEdoDir()}/${FileUtils.mergeFile}`)).toString().trim();
+				return EdoCache.readIndex(mergeSha1);
+			} catch (err) {
+				// If error, don't care, just won't update fingerprint
+			}
+		}
+		return null;
+	}
+
+	/**
 	 * Read types from sha1 identifier. Returns indexable object where index is `typeName` and
 	 * value is array with 2 items.
 	 *

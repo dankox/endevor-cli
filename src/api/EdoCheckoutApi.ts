@@ -86,6 +86,12 @@ export class EdoCheckoutApi {
 		}
 		await FileUtils.writeFile(`${FileUtils.getEdoDir()}/${FileUtils.stageFile}`, Buffer.from(stage));
 		console.log("checkout map stage: " + stage);
+		try {
+			await FileUtils.unlink(`${FileUtils.getEdoDir()}/${FileUtils.mergeFile}`);
+			await FileUtils.unlink(`${FileUtils.getEdoDir()}/${FileUtils.mergeConflictFile}`);
+		} catch (err) {
+			// don't care, just remove in case it's there... to not mess up merges
+		}
 	}
 
 	/**
