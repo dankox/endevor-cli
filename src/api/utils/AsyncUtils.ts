@@ -5,7 +5,7 @@ export class AsyncUtils {
 	private static lastProgress: number = 0;
 	private static fullProgress: number = 0;
 	public static progressCycleIndex = 0;
-	public static progressCycleColor = ConsoleUtils.cCyan;
+	public static progressCycleColor = ConsoleUtils.cRed;
 	public static progressCycle: string[] = [
 		"=>]>=", // ǁ =>]|]>=
 		"-/|\\",

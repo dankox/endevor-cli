@@ -84,13 +84,13 @@ export class EndevorRestApi {
 	 * @param comment for add file
 	 * @param headers used in the request
 	 */
-	public static async addElementHttp(url: string, file: string, ccid: string, comment: string, fingerprint: string, headers: any): Promise<IRestResponse> {
+	public static async addElementHttp(url: string, fileBuf: Buffer, ccid: string, comment: string, fingerprint: string, headers: any): Promise<IRestResponse> {
 		return new Promise<IRestResponse>((resolve, reject) => {
 			let addForm = new FormData();
 			addForm.append("ccid", ccid);
 			addForm.append("comment", comment);
 			addForm.append("fingerprint", fingerprint);
-			addForm.append("fromFile", fs.createReadStream(file));
+			addForm.append("fromFile", fileBuf);
 			addForm.append("oveSign", "yes"); // TODO: maybe do option on this????
 			headers = {
 				...addForm.getHeaders(),

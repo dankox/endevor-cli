@@ -11,9 +11,9 @@ import { EdoDiff } from './cli/EdoDiff';
 import { EdoStatus } from './cli/EdoStatus';
 import { EdoCatFile } from './cli/EdoCatFile';
 import { EdoCommit } from './cli/EdoCommit';
-import { EdoDifftool } from './EdoDifftool';
-import { EdoPush } from './EdoPush';
+import { EdoPush } from './cli/EdoPush';
 import { EdoShow } from './cli/EdoShow';
+import { EdoDifftool } from './EdoDifftool';
 
 yargs.usage('Usage: $0 <command> [options]')
 	.scriptName('edo')
@@ -23,7 +23,7 @@ yargs.usage('Usage: $0 <command> [options]')
 	.command('fetch [options] [files..]', 'Fetch elements from remote repo to remote stage', EdoFetch.edoFetchOptions, EdoFetch.process)
 	.command('merge [files..]', 'Merge files from remote to local stage', EdoMerge.edoMergeOptions, EdoMerge.process)
 	.command('pull [stage] [files..]', 'Fetch elements and merge them to local stage', EdoPull.edoPullOptions, EdoPull.process)
-	.command('push [file] [options]', 'Push elements from local stage to remote stage', EdoPush.edoPushOptions, EdoPush.push)
+	.command('push [options] [files..]', 'Push elements from local stage to remote stage', EdoPush.edoPushOptions, EdoPush.process)
 	.command('status [options] [stage]', 'Show the working tree status', EdoStatus.edoStatusOptions, EdoStatus.process)
 	.command('commit [files..]', 'Commit working directory to local stage', EdoCommit.edoCommitOptions, EdoCommit.process)
 	.command('restore [files..]', 'Discard changes in working directory', EdoDiscard.edoDiscardOptions, EdoDiscard.process)

@@ -4,6 +4,7 @@ import { EdoCache } from '../api/EdoCache';
 import { ISettings } from '../api/doc/ISettings';
 import { EdoFetchApi } from '../api/EdoFetchApi';
 import { EdoMergeApi } from '../api/EdoMergeApi';
+import { isNullOrUndefined } from 'util';
 
 /**
  * Edo pull, meaning do fetch and merge together
@@ -33,7 +34,7 @@ export class EdoPull {
 		let config: ISettings = await FileUtils.readSettings();
 		let stage: string = await FileUtils.readStage();
 		let remoteStage: string = argv.stage; // if undefined, merge will pick remote for this local stage
-		let files: string[] = [];
+		let files: string[] = (isNullOrUndefined(argv.files) ? [] : argv.files);
 
 		try {
 			if (files.length > 0) {
@@ -46,7 +47,7 @@ export class EdoPull {
 			await EdoMergeApi.merge(stage, remoteStage, files);
 		} catch (err) {
 			console.error("Error while running pull!");
-			console.error(err);
+			console.error(err.message);
 			process.exit(1);
 		}
 	}

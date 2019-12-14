@@ -34,6 +34,7 @@ export class FileUtils {
 	static readonly subMapFile: string = "submap";
 	static readonly stageFile: string = "STAGE";
 	static readonly mergeFile: string = "MERGE";
+	static readonly mergeConflictFile: string = "MERGE_CONFLICTS";
 	static readonly separator: string = "/"; // separator for type, element -> type/element
 
 	static cwdEdo: string = "./";

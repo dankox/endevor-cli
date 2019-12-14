@@ -29,7 +29,7 @@ export class EdoCatFile {
 			}
 		} catch (err) {
 			console.error("Error while running cat-file!");
-			console.error(err);
+			console.error(err.message);
 			process.exit(1);
 		}
 	}

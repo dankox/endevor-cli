@@ -75,7 +75,7 @@ export class EdoInit {
 		try {
 			cred64 = await ConsoleUtils.verifyCredentials(repoURL, user, password);
 		} catch (err) {
-			console.error("Error while verifying credentials.\n" + err);
+			console.error("Error while verifying credentials.\n" + err.message);
 			process.exit(1);
 		}
 
@@ -83,7 +83,7 @@ export class EdoInit {
 			await EdoInitApi.init(repoURL, cred64);
 		} catch (err) {
 			console.error("Error while running init!");
-			console.error(err);
+			console.error(err.message);
 			process.exit(1);
 		}
 	}

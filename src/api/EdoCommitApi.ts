@@ -35,7 +35,7 @@ export class EdoCommitApi {
 			if (isNullOrUndefined(sha1)) {
 				throw new Error(`Stage ${stage} doesn't exist!`);
 			}
-			if (!HashUtils.isSha1(stage)) {
+			if (!HashUtils.isSha1(sha1)) {
 				throw new Error(`Local stage ${stage} doesn't exist! Run 'edo merge'...`);
 			}
 			oldSha1 = sha1; // save for back reference
