@@ -13,9 +13,10 @@ export class EdoShow {
 		type: "string"
 	};
 
-	public static edoShowOptions = {
-		object: EdoShow.edoShowObject
-	};
+	public static edoShowOptions(argv: typeof yargs) {
+		return argv
+			.positional('object', EdoShow.edoShowObject);
+	}
 
 
 	/**

@@ -5,14 +5,14 @@ import { ISettings } from '../api/doc/ISettings';
 import { EdoFetchApi } from '../api/EdoFetchApi';
 import { EdoMergeApi } from '../api/EdoMergeApi';
 import { isNullOrUndefined } from 'util';
+import { HashUtils } from '../api/utils/HashUtils';
 
 /**
  * Edo pull, meaning do fetch and merge together
  */
 export class EdoPull {
-	private static readonly edoPullFile : yargs.Options = {
+	private static readonly edoPullFile : yargs.PositionalOptions = {
 		describe: 'Name of files (element.type) to pull from remote repo',
-		alias: "f",
 		type: "string"
 	};
 
@@ -21,10 +21,12 @@ export class EdoPull {
 		type: "string"
 	};
 
-	public static edoPullOptions = {
-		files: EdoPull.edoPullFile,
-		stage: EdoPull.edoPullStage
-	};
+
+	public static edoPullOptions(argv: typeof yargs) {
+		return argv
+			.positional('stage', EdoPull.edoPullStage)
+			.positional('files', EdoPull.edoPullFile);
+	}
 
 
 	/**
@@ -32,8 +34,22 @@ export class EdoPull {
 	 */
 	public static async process(argv: any) {
 		let config: ISettings = await FileUtils.readSettings();
-		let stage: string = await FileUtils.readStage();
-		let remoteStage: string = argv.stage; // if undefined, merge will pick remote for this local stage
+		// find out if stage argument is stage or file
+		if (argv.stage) {
+			if (!HashUtils.isSha1(argv.stage)) {
+				if (!argv.stage.startsWith('.map') && !argv.stage.match(/.+-.+-.+-.+/)) {
+					if (!argv.files || argv.files.legnth == 0) {
+						argv.files = [ argv.stage ];
+					} else {
+						argv.files.unshift(argv.stage);
+					}
+					delete argv.stage;
+				}
+			}
+		}
+
+		// pick stage if specified, or load
+		let stage = argv.stage || await FileUtils.readStage();
 		let files: string[] = (isNullOrUndefined(argv.files) ? [] : argv.files);
 
 		try {
@@ -44,7 +60,7 @@ export class EdoPull {
 				// run fetch for one stage only
 				await EdoFetchApi.fetchRemote(config, stage, [], EdoCache.OBJ_BLOB, false, false);
 			}
-			await EdoMergeApi.merge(stage, remoteStage, files);
+			await EdoMergeApi.merge(stage, undefined, files);
 		} catch (err) {
 			console.error("Error while running pull!");
 			console.error(err.message);

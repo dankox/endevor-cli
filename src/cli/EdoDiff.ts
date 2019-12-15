@@ -9,8 +9,8 @@ import { HashUtils } from "../api/utils/HashUtils";
  * Edo diff files in working directory with checked out stage
  */
 export class EdoDiff {
-	private static readonly edoDiffFile : yargs.PositionalOptions = {
-		describe: 'File name which you want to diff with local/remote stage'
+	private static readonly edoDiffFiles : yargs.PositionalOptions = {
+		describe: 'File names which you want to diff with local/remote stage'
 	};
 
 	private static readonly edoDiffCached : yargs.Options = {
@@ -38,12 +38,13 @@ export class EdoDiff {
 		alias: 'b'
 	};
 
-	public static edoDiffOptions = {
-		file: EdoDiff.edoDiffFile,
-		cached: EdoDiff.edoDiffCached,
-		// remote: EdoDiff.edoDiffRemote,
-		base: EdoDiff.edoDiffRemoteBase
-	};
+	public static edoDiffOptions(argv: typeof yargs) {
+		return argv
+			.option('cached', EdoDiff.edoDiffCached)
+			// .option('remote', EdoDiff.edoDiffRemote)
+			.option('base', EdoDiff.edoDiffRemoteBase)
+			.positional('files', EdoDiff.edoDiffFiles);
+	}
 
 
 	/**
@@ -75,6 +76,7 @@ export class EdoDiff {
 		let hasChanges: boolean = false;
 
 		for (const key of files) {
+			if (!isNullOrUndefined(argv.files) && argv.files.length > 0 && argv.files.indexOf(key) < 0) continue;
 			const output: string[] = await EdoDiffApi.diff(key, changes[key]);
 			if (output.length > 0) {
 				hasChanges = true;

@@ -13,9 +13,10 @@ export class EdoDiscard {
 		describe: 'File to discard (type/element)'
 	};
 
-	public static edoDiscardOptions = {
-		files: EdoDiscard.edoDiscardFile
-	};
+	public static edoDiscardOptions(argv: typeof yargs) {
+		return argv
+			.positional('files', EdoDiscard.edoDiscardFile);
+	}
 
 
 	/**
@@ -34,6 +35,7 @@ export class EdoDiscard {
 		let index = await EdoCache.readIndex(stage);
 
 		try {
+			// TODO: do logs to show what was discarded
 			await EdoCheckoutApi.checkoutFiles(index, files);
 		} catch (err) {
 			console.error("Error while running discard!");

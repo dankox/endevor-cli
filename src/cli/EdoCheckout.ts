@@ -10,9 +10,10 @@ export class EdoCheckout {
 		describe: 'Name of stage to checkout (env-stg-sys-sub)'
 	};
 
-	public static edoCheckoutOptions = {
-		stage: EdoCheckout.edoCheckoutStage
-	};
+	public static edoCheckoutOptions(argv: typeof yargs) {
+		return argv
+			.positional('stage', EdoCheckout.edoCheckoutStage);
+	}
 
 
 	/**

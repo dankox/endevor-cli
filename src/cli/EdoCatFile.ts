@@ -10,9 +10,10 @@ export class EdoCatFile {
 		type: "string"
 	};
 
-	public static edoCatOptions = {
-		file: EdoCatFile.edoCatFile
-	};
+	public static edoCatOptions(argv: typeof yargs) {
+		return argv
+			.positional('file', EdoCatFile.edoCatFile);
+	}
 
 
 	/**

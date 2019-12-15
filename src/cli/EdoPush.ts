@@ -15,16 +15,17 @@ export class EdoPush {
 	};
 
 	private static readonly edoPushMessage : yargs.Options = {
-		describe: 'Message will be parsed as ccid and comment and used in Endevor (parsing is by space)',
+		describe: 'Message will be parsed as ccid and comment and used in Endevor (parsing is done by space)',
 		demand: true,
 		alias: "m",
 		type: "string"
 	};
 
-	public static edoPushOptions = {
-		files: EdoPush.edoPushFile,
-		message: EdoPush.edoPushMessage
-	};
+	public static edoPushOptions(argv: typeof yargs) {
+		return argv
+			.option('message', EdoPush.edoPushMessage)
+			.positional('files', EdoPush.edoPushFile);
+	}
 
 
 	/**

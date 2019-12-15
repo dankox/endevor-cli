@@ -4,6 +4,8 @@ import { ISettings } from "../api/doc/ISettings";
 import { CsvUtils } from "../api/utils/CsvUtils";
 import { EdoFetchApi } from "../api/EdoFetchApi";
 import { EdoCache } from "../api/EdoCache";
+import { HashUtils } from "../api/utils/HashUtils";
+import { isNullOrUndefined } from "util";
 
 /**
  * Edo fetch remote stage to local
@@ -17,14 +19,16 @@ export class EdoFetch {
 	};
 
 	private static readonly edoFetchFile : yargs.PositionalOptions = {
-		describe: 'Name of file (element.type) to fetch from remote Endevor',
+		describe: 'Name of file to fetch from remote Endevor. Format of files `typeName/eleName`',
 		type: "string"
 	};
 
-	public static edoFetchOptions = {
-		all: EdoFetch.edoFetchAllOption,
-		files: EdoFetch.edoFetchFile
-	};
+	public static edoFetchOptions(argv: typeof yargs) {
+		return argv
+			.option('all', EdoFetch.edoFetchAllOption)
+			.positional('stage', EdoFetch.edoFetchFile)
+			.positional('files', EdoFetch.edoFetchFile);
+	}
 
 
 	/**
@@ -33,15 +37,30 @@ export class EdoFetch {
 	 */
 	public static async process(argv: any) {
 		let config: ISettings = await FileUtils.readSettings();
-		let stage = await FileUtils.readStage();
+		// find out if stage argument is stage or file
+		if (argv.stage) {
+			if (!HashUtils.isSha1(argv.stage)) {
+				if (!argv.stage.startsWith('.map') && !argv.stage.match(/.+-.+-.+-.+/)) {
+					if (!argv.files || argv.files.legnth == 0) {
+						argv.files = [ argv.stage ];
+					} else {
+						argv.files.unshift(argv.stage);
+					}
+					delete argv.stage;
+				}
+			}
+		}
+
+		// pick stage if specified, or load
+		let stage = argv.stage || await FileUtils.readStage();
 
 		try {
 			// for option to fetch for all stages in map
 			if (argv.all) {
 				// get map array containing all stages to fetch from
 				let stageArr = await CsvUtils.getMapArray(stage);
-				let index = await EdoFetchApi.fetchRemote(config, stage);
-				let files = EdoCache.getFiles(index);
+				let index = await EdoFetchApi.fetchRemote(config, stage, argv.files);
+				let files = (isNullOrUndefined(argv.files) ? EdoCache.getFiles(index) : argv.files);
 				stageArr.shift(); // remove first stage (we've got it ^)
 				for (const stg of stageArr) {
 					await EdoFetchApi.fetchRemote(config, stg, files);

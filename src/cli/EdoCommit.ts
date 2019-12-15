@@ -19,10 +19,11 @@ export class EdoCommit {
 		alias: 'a'
 	};
 
-	public static edoCommitOptions = {
-		files: EdoCommit.edoCommitFile,
-		all: EdoCommit.edoCommitAll
-	};
+	public static edoCommitOptions(argv: typeof yargs) {
+		return argv
+			.option('all', EdoCommit.edoCommitAll)
+			.positional('files', EdoCommit.edoCommitFile);
+	}
 
 	/**
 	 * commit

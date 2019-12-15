@@ -13,7 +13,7 @@ import { isNullOrUndefined } from 'util';
 export class EdoInit {
 
 	private static readonly edoInitUrlOptions : yargs.PositionalOptions = {
-		describe: 'Full remote URL of Endevor repo (e.g. http://localhost:8080/EndevorService/rest/CONFIG)'
+		describe: 'Full remote URL of Endevor repo\n(e.g. http://localhost:8080/EndevorService/rest/CONFIG)'
 	};
 
 	private static readonly edoInitUserOptions : yargs.Options = {
@@ -28,11 +28,13 @@ export class EdoInit {
 		alias: 'p'
 	};
 
-	public static edoInitOptions = {
-		url: EdoInit.edoInitUrlOptions,
-		user: EdoInit.edoInitUserOptions,
-		pass: EdoInit.edoInitPassOptions
-	};
+	public static edoInitOptions(argv: typeof yargs) {
+		return argv
+			.option('user', EdoInit.edoInitUserOptions)
+			.option('pass', EdoInit.edoInitPassOptions)
+			.positional('url', EdoInit.edoInitUrlOptions);
+	}
+
 
 	/**
 	 *

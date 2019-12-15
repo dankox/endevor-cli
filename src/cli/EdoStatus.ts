@@ -27,11 +27,12 @@ export class EdoStatus {
 		boolean: true
 	};
 
-	public static edoStatusOptions = {
-		"ignore-space": EdoStatus.edoStatusIgnoreSpace,
-		porcelain: EdoStatus.edoStatusPorcelain,
-		stage: EdoStatus.edoStatusStage
-	};
+	public static edoStatusOptions(argv: typeof yargs) {
+		return argv
+			.option('ignore-space', EdoStatus.edoStatusIgnoreSpace)
+			.option('porcelain', EdoStatus.edoStatusPorcelain)
+			.positional('stage', EdoStatus.edoStatusStage);
+	}
 
 
 	/**

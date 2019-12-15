@@ -2,6 +2,7 @@ import yargs from 'yargs';
 import { isNullOrUndefined } from 'util';
 import { FileUtils } from '../api/utils/FileUtils';
 import { EdoMergeApi } from '../api/EdoMergeApi';
+import { HashUtils } from '../api/utils/HashUtils';
 
 /**
  * Edo merge remote stage to local stage
@@ -13,14 +14,15 @@ export class EdoMerge {
 	};
 
 	private static readonly edoMergeStage : yargs.PositionalOptions = {
-		describe: 'Name or sha1 id of stage to merge with',
+		describe: 'Name or sha1 id of stage which should be merge to working directory',
 		type: "string"
 	};
 
-	public static edoMergeOptions = {
-		stage: EdoMerge.edoMergeStage
-		// files: EdoMerge.edoMergeFile
-	};
+	public static edoMergeOptions(argv: typeof yargs) {
+		return argv
+			.positional('stage', EdoMerge.edoMergeStage)
+			.positional('files', EdoMerge.edoMergeFile);
+	}
 
 
 	/**
@@ -28,6 +30,20 @@ export class EdoMerge {
 	 */
 	public static async process(argv: any) {
 		try {
+			// find out if stage argument is stage or file
+			if (argv.stage) {
+				if (!HashUtils.isSha1(argv.stage)) {
+					if (!argv.stage.startsWith('.map') && !argv.stage.match(/.+-.+-.+-.+/)) {
+						if (!argv.files || argv.files.legnth == 0) {
+							argv.files = [ argv.stage ];
+						} else {
+							argv.files.unshift(argv.stage);
+						}
+						delete argv.stage;
+					}
+				}
+			}
+
 			let stage: string = await FileUtils.readStage();
 			let remoteStage: string = argv.stage; // if undefined, merge will pick remote for this local stage
 
