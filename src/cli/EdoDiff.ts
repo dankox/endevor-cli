@@ -2,6 +2,8 @@ import yargs from "yargs";
 import { FileUtils } from "../api/utils/FileUtils";
 import { isNullOrUndefined } from "util";
 import { EdoDiffApi } from "../api/EdoDiffApi";
+import { EdoCache } from "../api/EdoCache";
+import { HashUtils } from "../api/utils/HashUtils";
 
 /**
  * Edo diff files in working directory with checked out stage
@@ -12,7 +14,8 @@ export class EdoDiff {
 	};
 
 	private static readonly edoDiffCached : yargs.Options = {
-		describe: 'Diff commited changes with remote changes (local stage with remote stage)',
+		// describe: 'Diff changes in local stage. Get the last version in local stage and diff it with base in local stage.',
+		describe: 'Diff cached changes with remote. Cached changes are all commited changes on local stage.',
 		demand: false,
 		boolean: true,
 		conflicts: "remote",
@@ -20,17 +23,26 @@ export class EdoDiff {
 	};
 
 	private static readonly edoDiffRemote : yargs.Options = {
-		describe: 'Diff working directory against remote changes',
+		describe: 'Diff commited changes with remote changes (local stage with remote stage).',
 		demand: false,
 		boolean: true,
 		conflicts: "cached",
 		alias: 'r'
 	};
 
+	private static readonly edoDiffRemoteBase : yargs.Options = {
+		describe: 'Diff commited changes with remote base changes (local stage with base version on remote stage).',
+		demand: false,
+		boolean: true,
+		conflicts: "cached",
+		alias: 'b'
+	};
+
 	public static edoDiffOptions = {
 		file: EdoDiff.edoDiffFile,
 		cached: EdoDiff.edoDiffCached,
-		remote: EdoDiff.edoDiffRemote
+		// remote: EdoDiff.edoDiffRemote,
+		base: EdoDiff.edoDiffRemoteBase
 	};
 
 
@@ -39,15 +51,26 @@ export class EdoDiff {
 	 * @param argv
 	 */
 	public static async process(argv: any) {
-		let stage: string = await FileUtils.readStage();
+		let stage: string = await FileUtils.readStage(true);
 
 		// cached, it's always commited changes against remote version
 		let cached: boolean = !isNullOrUndefined(argv.cached) ? argv.cached : false;
 		// remote, workdir file against remote version
-		let remote: boolean = !isNullOrUndefined(argv.remote) ? argv.remote : false;
+		// let remote: boolean = !isNullOrUndefined(argv.remote) ? argv.remote : false;
+		let rBase: boolean = !isNullOrUndefined(argv.base) ? argv.base : false;
 
 		// get changes in the working directory against local stage
-		const changes = await EdoDiffApi.getFileDiff(stage);
+		let changes: {[key: string]: string[]};
+		if (!cached && !rBase) {
+			changes = await EdoDiffApi.getFileDiff(stage);
+		} else {
+			if (cached) {
+				changes = await EdoDiffApi.getFileDiff(`remote/${stage}`);
+			} else {
+				changes = await EdoDiffApi.getFileDiff(`remote/${stage}`, true);
+			}
+		}
+
 		const files = Object.keys(changes);
 		let hasChanges: boolean = false;
 

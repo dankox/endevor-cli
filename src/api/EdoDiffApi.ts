@@ -58,14 +58,19 @@ export class EdoDiffApi {
 	}
 
 	/**
-	 * Get a list of files with differences between working directory and stage, or
-	 * between two stages (if `oldStage` is specified).
+	 * Get a list of files with differences between working directory and last changes in stage.
+	 * If `base` specified, compare with base from stage.
 	 *
 	 * Each file has two items, new version and old version.
 	 * If that file doesn't exist in new or old version, it is referenced as `null`.
 	 * If the file is in Edo database, it has sha1 reference. If it's work directory file, it has
 	 * keyword `file` specified.
 	 *
+	 * @param stage name or sha1 of stage to compare with
+	 * @param base specify if diff should compare with base changes or last changes.
+	 * If set to `true` compare with base changes, if `false` compare with last changes.
+	 * Default is `false`
+	 * @returns
 	 * Example of output:
 	 * for diff between stages
 	 * ```
@@ -83,59 +88,46 @@ export class EdoDiffApi {
 	 * "type/elem3": [ 'file', 'null' ]
 	 * }
 	 * ```
-	 *
-	 * @param stage
-	 * @param oldStage
 	 */
-	public static async getFileDiff(stage: string, oldStage?: string) {
-		let newIndex: IEdoIndex | null = null;
-		let oldIndex: IEdoIndex | null = null;
+	public static async getFileDiff(stage: string, base: boolean = false) {
+		let index: IEdoIndex | null = null;
 
 		// if sha1, grab stage name from index file (for both new and old)
 		if (HashUtils.isSha1(stage)) {
-			newIndex = await EdoCache.readIndex(stage);
-			stage = newIndex.stgn;
+			index = await EdoCache.readIndex(stage);
+			stage = index.stgn;
 		} else {
 			const sha1 = await FileUtils.readRefs(stage);
 			if (isNullOrUndefined(sha1)) {
 				throw new Error(`Stage ${stage} doesn't exist!`);
 			}
-			newIndex = await EdoCache.readIndex(sha1);
-		}
-
-		// if oldStage specified, do diffs on indexes
-		if (!isNullOrUndefined(oldStage)) {
-			if (HashUtils.isSha1(oldStage)) {
-				oldIndex = await EdoCache.readIndex(oldStage);
-				oldStage = oldIndex.stgn;
-			} else {
-				const sha1 = await FileUtils.readRefs(oldStage);
-				if (isNullOrUndefined(sha1)) {
-					throw new Error(`Stage ${oldStage} doesn't exist!`);
-				}
-				oldIndex = await EdoCache.readIndex(sha1);
-			}
-			return EdoDiffApi.getIndexDiff(newIndex, oldIndex);
+			index = await EdoCache.readIndex(sha1);
 		}
 
 		// diff index with working directory
 		let diffs: {[key: string]: string[]} = {};
-		const typeDirs: string[] = Object.keys(await EdoCache.readTypes(newIndex.type));
+		const typeDirs: string[] = Object.keys(await EdoCache.readTypes(index.type));
 		const wdFiles: string[] = await FileUtils.listRepoDirs(typeDirs);
-		const uniqKeys = [...new Set([...Object.keys(newIndex.elem), ...wdFiles])];
+		const uniqKeys = [...new Set([...Object.keys(index.elem), ...wdFiles])];
 
 		for (const key of uniqKeys) {
 			if (wdFiles.indexOf(key) == -1) {
-				diffs[key] = [ 'null', newIndex.elem[key][0] ];
+				diffs[key] = [ 'null', index.elem[key][0] ];
 				continue;
 			}
-			if (isNullOrUndefined(newIndex.elem[key])) {
+			if (isNullOrUndefined(index.elem[key])) {
 				diffs[key] = [ 'file', 'null' ];
 				continue;
 			}
 			const fsha1 = await HashUtils.getEdoFileHash(FileUtils.cwdEdo + key);
-			if (newIndex.elem[key][0] != fsha1) {
-				diffs[key] = [ 'file', newIndex.elem[key][0] ];
+			if (base) {
+				if (index.elem[key][1] != fsha1) {
+					diffs[key] = [ 'file', index.elem[key][1] ];
+				}
+			} else {
+				if (index.elem[key][0] != fsha1) {
+					diffs[key] = [ 'file', index.elem[key][0] ];
+				}
 			}
 		}
 		return diffs;
@@ -147,6 +139,10 @@ export class EdoDiffApi {
 	 *
 	 * If file doesn't exist in one of the indexes, the returned value for that index will be `null`.
 	 *
+	 * @param newIndex the "new" index which should be applied on old version
+	 * @param oldIndex the "old" index to compare new one with [optional]
+	 * @param base specify if diff should compare with base from `oldIndex` or not (default `false`)
+	 * @returns
 	 * Example of output:
 	 * ```
 	 * {
@@ -155,11 +151,8 @@ export class EdoDiffApi {
 	 * "type/elem3": [ 'new-sha1', 'null' ]
 	 * }
 	 * ```
-	 *
-	 * @param newIndex the "new" index which should be applied on old version
-	 * @param oldIndex the "old" index to compare new one with [optional]
 	 */
-	public static getIndexDiff(newIndex: IEdoIndex, oldIndex?: IEdoIndex): {[key: string]: string[]} {
+	public static getIndexDiff(newIndex: IEdoIndex, oldIndex?: IEdoIndex, base: boolean = false): {[key: string]: string[]} {
 		let uniqKeys: string[] = [];
 		let diffBase: boolean = false;
 		if (isNullOrUndefined(oldIndex)) {
@@ -186,8 +179,14 @@ export class EdoDiffApi {
 					diffs[key] = [ newIndex.elem[key][0], newIndex.elem[key][1] ];
 				}
 			} else {
-				if (newIndex.elem[key][0] != oldIndex.elem[key][0]) {
-					diffs[key] = [ newIndex.elem[key][0], oldIndex.elem[key][0] ];
+				if (base) {
+					if (newIndex.elem[key][0] != oldIndex.elem[key][1]) {
+						diffs[key] = [ newIndex.elem[key][0], oldIndex.elem[key][1] ];
+					}
+				} else {
+					if (newIndex.elem[key][0] != oldIndex.elem[key][0]) {
+						diffs[key] = [ newIndex.elem[key][0], oldIndex.elem[key][0] ];
+					}
 				}
 			}
 		}

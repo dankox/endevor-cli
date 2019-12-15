@@ -107,7 +107,7 @@ export class EdoCommitApi {
 						await FileUtils.unlink(`${FileUtils.getEdoDir()}/${FileUtils.mergeFile}`);
 						await FileUtils.unlink(`${FileUtils.getEdoDir()}/${FileUtils.mergeConflictFile}`);
 					} catch (err) {
-						console.error(`Error removing merge/conflict files! Do it manually = =`);
+						// Don't care, unlink might fail for mergeConflictFile if there were no conflicts
 					}
 				} else if (conflictFiles.length > 0) {
 					await FileUtils.writeFile(`${FileUtils.getEdoDir()}/${FileUtils.mergeConflictFile}`, Buffer.from(conflictFiles.join('\n')));
