@@ -18,6 +18,11 @@ export class EdoFetch {
 		alias: 'a'
 	};
 
+	private static readonly edoFetchStage : yargs.PositionalOptions = {
+		describe: 'Name or sha1 id of remote stage which you want to fetch',
+		type: "string"
+	};
+
 	private static readonly edoFetchFile : yargs.PositionalOptions = {
 		describe: 'Name of file to fetch from remote Endevor. Format of files `typeName/eleName`',
 		type: "string"
@@ -26,7 +31,7 @@ export class EdoFetch {
 	public static edoFetchOptions(argv: typeof yargs) {
 		return argv
 			.option('all', EdoFetch.edoFetchAllOption)
-			.positional('stage', EdoFetch.edoFetchFile)
+			.positional('stage', EdoFetch.edoFetchStage)
 			.positional('files', EdoFetch.edoFetchFile);
 	}
 

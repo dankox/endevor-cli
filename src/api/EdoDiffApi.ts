@@ -24,10 +24,10 @@ export class EdoDiffApi {
 	 *
 	 * @param file name in format `type/element`
 	 * @param whatToDiff array from `getxxxDiff()` functions in format `[ 'new', 'old' ]`
+	 * @param ignoreWhiteSpace ignore white space? Default is `true` for ignoring
 	 * @returns patch as array of lines
 	 */
-	public static async diff(file: string, whatToDiff: string[]): Promise<string[]> {
-		const trimTrailingSpace = true;
+	public static async diff(file: string, whatToDiff: string[], ignoreWhiteSpace: boolean = true): Promise<string[]> {
 		let output: string[] = [];
 		if (whatToDiff[1] == 'null' || whatToDiff[0] == 'null') {
 			// TODO: should return full file???
@@ -41,17 +41,17 @@ export class EdoDiffApi {
 			newBuf = (await FileUtils.readFile(FileUtils.cwdEdo + file)).toString();
 		} else {
 			newBuf = (await EdoCache.getSha1Object(whatToDiff[0], EdoCache.OBJ_BLOB)).toString();
-			if (trimTrailingSpace) newBuf = MergeUtils.trimTrailSpace(newBuf);
+			if (ignoreWhiteSpace) newBuf = MergeUtils.trimTrailSpace(newBuf);
 		}
 		if (whatToDiff[1] == 'file') {
 			oldBuf = (await FileUtils.readFile(FileUtils.cwdEdo + file)).toString();
 		} else {
 			oldBuf = (await EdoCache.getSha1Object(whatToDiff[1], EdoCache.OBJ_BLOB)).toString();
-			if (trimTrailingSpace) oldBuf = MergeUtils.trimTrailSpace(oldBuf);
+			if (ignoreWhiteSpace) oldBuf = MergeUtils.trimTrailSpace(oldBuf);
 		}
 		if (oldBuf == newBuf) return [];
 
-		output.push(...jsdiff.createTwoFilesPatch(`a/${file}`, `b/${file}`, oldBuf, newBuf, '', '', { ignoreWhitespace: trimTrailingSpace }).split('\n'));
+		output.push(...jsdiff.createTwoFilesPatch(`a/${file}`, `b/${file}`, oldBuf, newBuf, '', '', { ignoreWhitespace: ignoreWhiteSpace }).split('\n'));
 		// TODO: check this, to provide hunks and lines numbers for better reference
 		// let parse: jsdiff.ParsedDiff = jsdiff.structuredPatch(`a/${file}`, `b/${file}`, oldBuf, newBuf, '', '', { ignoreWhitespace: true });
 		return output;
