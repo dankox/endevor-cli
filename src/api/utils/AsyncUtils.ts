@@ -58,6 +58,8 @@ export class AsyncUtils {
 				perc++;
 				AsyncUtils.lastProgress = perc;
 				cbProgress(perc, promises.length);
+			// }).catch(() => {
+			// 	process.stdout.write(ConsoleUtils.cReset);
 			});
 		}
 		return Promise.all(promises);

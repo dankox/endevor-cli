@@ -15,6 +15,7 @@ import { CsvUtils } from './utils/CsvUtils';
 export class EdoCache {
 	static readonly OBJ_LIST: string = "list";
 	static readonly OBJ_BLOB: string = "blob";
+	static readonly OBJ_LOGS: string = "logs";
 	static readonly OBJ_TYPE: string = "type";
 
 	/**
@@ -56,12 +57,21 @@ export class EdoCache {
 	}
 
 	/**
-	 * Get index (list of elements and other meta data) from sha1.
+	 * Get index (list of elements and other meta data) for specified stage.
 	 *
-	 * @param sha1 of index file
+	 * @param stage name or sha1 of index
 	 */
-	public static async readIndex(sha1: string): Promise<IEdoIndex> {
-		let buf: Buffer = await EdoCache.getSha1Object(sha1, EdoCache.OBJ_LIST);
+	public static async readIndex(stage: string): Promise<IEdoIndex> {
+		// TODO: search for stage sha1, update all calls to this function for readability improvement
+		if (!HashUtils.isSha1(stage)) {
+			const sha1 = await FileUtils.readRefs(stage);
+			if (isNullOrUndefined(sha1)) {
+				throw new Error(`Stage ${stage} doesn't have index!`);
+			}
+			stage = sha1;
+		}
+
+		let buf: Buffer = await EdoCache.getSha1Object(stage, EdoCache.OBJ_LIST);
 		const data: string[] = buf.toString().split('\n');
 		let elem: { [key: string]: string[] } = {};
 		let prev = 'null';
@@ -168,11 +178,88 @@ export class EdoCache {
 		return index;
 	}
 
+	public static async getLogs(stage: string, file: string) {
+		let index: IEdoIndex;
+		try {
+			index = await EdoCache.readIndex(stage);
+		} catch (err) {
+			throw new Error(`Stage ${stage} doesn't have index! (run 'edo fetch ${stage}')`);
+		}
+		if (isNullOrUndefined(index.elem[file])){
+			throw new Error(`File ${file} doesn't exist in ${stage}! (run 'edo fetch ${stage} ${file}')`);
+		}
+		if (!HashUtils.isSha1(index.elem[file][3])) {
+			throw new Error(`File ${file} doesn't have history log in ${stage}! (run 'edo fetch -l ${stage} ${file}')`);
+		}
+		let buf: Buffer = await EdoCache.getSha1Object(index.elem[file][3], EdoCache.OBJ_LOGS);
+		return EdoCache.extractLogDetails(buf);
+	}
+
+	public static async getLogsContent(stage: string, file: string, vvll: string = '') {
+		let index: IEdoIndex;
+		try {
+			index = await EdoCache.readIndex(stage);
+		} catch (err) {
+			throw new Error(`Stage ${stage} doesn't have index! (run 'edo fetch ${stage}')`);
+		}
+		if (isNullOrUndefined(index.elem[file])){
+			throw new Error(`File ${file} doesn't exist in ${stage}! (run 'edo fetch ${stage} ${file}')`);
+		}
+		if (!HashUtils.isSha1(index.elem[file][3])) {
+			throw new Error(`File ${file} doesn't have history log in ${stage}! (run 'edo fetch -l ${stage} ${file}')`);
+		}
+		let buf: Buffer = await EdoCache.getSha1Object(index.elem[file][3], EdoCache.OBJ_LOGS);
+		let logs = EdoCache.extractLogDetails(buf);
+
+		if (!isNullOrUndefined(logs[vvll])) {
+			return EdoCache.extractLogContent(buf, vvll);
+		} else {
+			throw new Error(`Incorrect change specified '${vvll}'! (run 'edo show -l ${stage}:${file}' to list available changes)`);
+		}
+	}
+
+	public static extractLogDetails(logBuf: Buffer): {[key: string]: string[]} {
+		let lines: string[] = logBuf.toString().split('\n');
+		let logDetails: {[key: string]: string[]} = {};
+		for (let line of lines) {
+			if (line[2] == ' ' && line.slice(3,7).match(/^\d+$/)) {
+				const vvll = line.slice(3, 7);
+				const user = line.slice(13, 21);
+				const date = line.slice(22, 35);
+				const ccid = line.slice(45, 57);
+				const comment = line.slice(58);
+				logDetails[vvll] = [ vvll, user, date, ccid, comment ];
+			} else if (line[2] == '+') {
+				break;
+			}
+		}
+		return logDetails;
+	}
+
+	public static extractLogContent(logBuf: Buffer, vvll: string) {
+		let lines: string[] = logBuf.toString().split('\n');
+		let output: string[] = [];
+		let foundDetail: boolean = false;
+		for (let line of lines) {
+			if (!foundDetail && line[2] == ' ') {
+				if (line.slice(3, 7) == vvll) {
+					foundDetail = true;
+				}
+			} else if (line[2] == '+') {
+				if (line.slice(3, 7) > vvll) continue;
+				if (line[7] == '-' && line.slice(8, 12) <= vvll) continue;
+				output.push(line.slice(13));
+				// output.push(line.trimRight());
+			}
+		}
+		return Buffer.from(output.join('\n'));
+	}
+
 	/**
 	 * Get list of files in format `typeName/eleName` from provided index.
 	 *
 	 * Files can be filtered by using filter parameter in format `key=value`, where key
-	 * can be one of the following: lsha1, rsha1, fingerprint.
+	 * can be one of the following: lsha1, rsha1, fingerprint, logs.
 	 *
 	 * Example of filter `fingerprint=null` will return list of files which has
 	 * null fingerprint.
@@ -186,12 +273,14 @@ export class EdoCache {
 		let filterValue = 'null'; // default if null returns
 		if (!isNullOrUndefined(filter)) {
 			const tmpFil = filter.split("=");
-			if (tmpFil[0] == 'fingerprint') {
-				filterKey = 2;
-			} else if (tmpFil[0] == 'lsha1') {
+			if (tmpFil[0] == 'lsha1') {
 				filterKey = 0;
 			} else if (tmpFil[0] == 'rsha1') {
 				filterKey = 1;
+			} else if (tmpFil[0] == 'fingerprint') {
+					filterKey = 2;
+			} else if (tmpFil[0] == 'logs') {
+					filterKey = 3;
 			}
 			filterValue = tmpFil[1];
 		}

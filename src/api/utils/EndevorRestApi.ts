@@ -54,6 +54,20 @@ export class EndevorRestApi {
 	}
 
 	/**
+	 * Get header object for running Endevor Print Rest API requests.
+	 *
+	 * @param config `ISettings` obtained from config file.
+	 * @returns header object with `Accept` and `Authorization`.
+	 */
+	public static getTextHeader(config: ISettings): any {
+		const headers = {
+			"Accept": "text/plain",
+			...EndevorRestApi.getAuthHeader(config.cred64)
+		};
+		return headers;
+	}
+
+	/**
 	 * GET HTTP request done thru nodejs http/https module which returns Promise (IRestResponse)
 	 *
 	 * @param url full URL which is requested (e.g.: http://localhost:8080/example/link)
@@ -176,7 +190,7 @@ export class EndevorRestApi {
 				} else if (response.headers['content-type'] == 'application/octet-stream') {
 					responseJson.body = Buffer.concat(data);
 				} else if (response.headers['content-type'] == 'text/plain') {
-					responseJson.body = Buffer.concat(data).toString();
+					responseJson.body = Buffer.concat(data); //.toString();
 				} else {
 					responseJson.body = Buffer.concat(data); // data.join('');
 				}

@@ -25,7 +25,7 @@ export class EdoFetchApi {
 	 * @param stage name or sha1 to fetch. If sha1, stage name will be used from
 	 * already existed index (referenced by sha1 id).
 	 * @param files list of files which you can force fetch (if empty, fetch only updated files from index)
-	 * @param type of the files to fetch (`EdoCache.OBJ_BLOB` - elements, `EdoCache.OBJ_LOG` - print history?) default `EdoCache.OBJ_BLOB`
+	 * @param type of the files to fetch (`EdoCache.OBJ_BLOB` - elements, `EdoCache.OBJ_LOGS` - print history?) default `EdoCache.OBJ_BLOB`
 	 * @param search in map if not in remote stage (use when trying to grab elements from higher location in the map, default `false`)
 	 */
 	public static async fetchRemote(config: ISettings, stage: string, files: string[] = [], type: string = EdoCache.OBJ_BLOB,
@@ -56,12 +56,18 @@ export class EdoFetchApi {
 			// for no files passed, fetch index from Endevor and pick files from it
 			updateIdx = await EdoFetchApi.fetchIndex(config, index);
 			files = EdoCache.getFiles(index, "fingerprint=null"); // get files with no fingerprint
+			// for logs add files which doesn't have them
+			if (type == EdoCache.OBJ_LOGS) {
+				const logs = EdoCache.getFiles(index, "logs=null"); // get files with no log file
+				files = [...new Set([...files, ...logs])];
+			}
 		} else {
 			// files passed, fetch index and filter it to contain files specified
 			updateIdx = await EdoFetchApi.fetchIndex(config, index, files);
 
 			if (!search) {
 				files = EdoCache.getFiles(index, "fingerprint=null");
+				// for logs, use the array as is... logs needs to be updated too
 			} else {
 				// Check correct file format
 				for (const file of files) {
@@ -84,7 +90,7 @@ export class EdoFetchApi {
 				let baseFiles: string[] = [];
 				const types = await EdoCache.readTypes(index.type);
 				for (const fetched of Object.values(fetchedKeys)) {
-					if (fetched[0] != 'null') {
+					if (fetched[0] != 'null' && fetched[0] != 'del') {
 						const type = fetched[4].split(FileUtils.separator);
 						if (types[type[0]][0] == 'T') {
 							baseFiles.push(fetched[4]);
@@ -97,15 +103,17 @@ export class EdoFetchApi {
 
 				let bases: { [key: string]: string } = {};
 				for (const baseKey of baseKeys) {
-					if (baseKey[0] == 'null') continue;
+					if (baseKey[0] == 'null' || baseKey[0] == 'del') continue;
 					bases[baseKey[4]] = baseKey[0];
 				}
 
 				// update index with new sha1 and fingerprint
-				fetchedKeys.forEach(fetchKey => {
-					if (fetchKey[0] == 'null') {
+				for (const fetchKey of fetchedKeys) {
+					if (fetchKey[0] == 'null') continue; // skip for errors
+
+					if (fetchKey[0] == 'del') {
 						delete index.elem[fetchKey[4]]; // remove from index (deleted in remote)
-						return;
+						continue;
 					}
 					if (!isNullOrUndefined(index.elem[fetchKey[4]])) {
 						// for existing index key, save 3rd field (hsha1)
@@ -117,7 +125,40 @@ export class EdoFetchApi {
 					}
 					index.elem[fetchKey[4]] = fetchKey;
 					updateIdx = true;
-				});
+				}
+			}
+
+			// filter text files only for logs
+			let logFiles: string[] = [];
+			const types = await EdoCache.readTypes(index.type);
+			for (const file of files) {
+				const type = file.split(FileUtils.separator);
+				if (types[type[0]][0] == 'T') {
+					logFiles.push(file);
+				}
+			}
+			// fetch element logs (history)
+			if (logFiles.length > 0 && type == EdoCache.OBJ_LOGS) {
+				// ----------------------------------------------------[===
+				process.stdout.write(`fetching history for <${stage}>  `);
+
+				let fetchedKeys: string[][] = await AsyncUtils.promiseAll(logFiles.map(item => EdoFetchApi.fetchHistory(config, stage, item)), AsyncUtils.progressBar);
+
+				// update index with new sha1 and fingerprint
+				for (const fetchKey of fetchedKeys) {
+					if (fetchKey[3] == 'null') continue; // skip for errors
+
+					if (fetchKey[3] == 'del') {
+						fetchKey[3] = 'null'; // set to null for update
+					}
+					if (!isNullOrUndefined(index.elem[fetchKey[4]])) {
+						// for existing index key, save 3rd field (hsha1)
+						index.elem[fetchKey[4]][3] = fetchKey[3];
+					} else {
+						index.elem[fetchKey[4]] = fetchKey;
+					}
+					updateIdx = true;
+				}
 			}
 		}
 		index.stat = 'remote'; // TODO: ??? to mark as remote ???
@@ -126,9 +167,9 @@ export class EdoFetchApi {
 			// write index for remote stage (fetch doesn't work on local stage)
 			console.log(`writing index for remote/${stage}...`);
 			indexSha1 = await EdoCache.writeIndex(index);
-			if (indexSha1 != null) FileUtils.writeRefs(stage, indexSha1, true); // update refs
+			if (indexSha1 != null) await FileUtils.writeRefs(stage, indexSha1, true); // update refs
 			console.log(`fetch of remote/${stage} done!`);
-			if (hints) {
+			if (hints && type == EdoCache.OBJ_BLOB) {
 				console.log(`run 'edo merge' to merge it into local...`);
 				if (files.length == 0) {
 					console.log("no files in remote stage!");
@@ -196,7 +237,7 @@ export class EdoFetchApi {
 					}
 				} else {
 					// for non-existent index key, create new one
-					index.elem[key] = [`lsha1`, `rsha1`, `null`, `null`, key];
+					index.elem[key] = [`null`, `null`, `null`, `null`, key];
 					updated = true;
 				}
 				index.elem[key][5] = baseVVLL;
@@ -285,7 +326,8 @@ export class EdoFetchApi {
 				if (response.status != 206) {
 					console.error(`Error obtaining element from url '${eleURL}':\n${jsonBody.messages}`);
 				} else {
-					console.warn(`Element '${element}' not found in stage '${stage}', re-run 'edo fetch' or 'edo fetch ${element}'`);
+					// console.warn(`Element '${element}' deleted from stage '${stage}'...`);
+					return [ 'del', 'null', 'null', 'null', element ];
 				}
 				return [ 'null', 'null', 'null', 'null', element ];
 			}
@@ -297,6 +339,53 @@ export class EdoFetchApi {
 			return [ sha1, sha1, fingerprint, 'null', element ]; // index list format
 		} catch (err) {
 			console.error(`Exception when obtaining element '${element}' from stage '${stage}':\n${err}`);
+			return [ 'null', 'null', 'null', 'null', element ];
+		}
+	}
+
+	/**
+	 * Fetch element history from Endevor (do print with history action) and save it as sha1 in Edo database.
+	 *
+	 * @param config ISettings from config file
+	 * @param stage string in format `env-stgnum-system-subsystem`
+	 * @param element name in format `typeName/eleName` (last item in index list)
+	 * @returns array `[ null, null, null, sha1, element ]`, if not found or error `[ null, null, null, null, element ]`
+	 */
+	public static async fetchHistory(config: ISettings, stage: string, element: string): Promise<string[]> {
+		const stageParts = stage.split('-');
+		const elemParts = CsvUtils.splitX(element, FileUtils.separator, 1);
+		const textHead = EndevorRestApi.getTextHeader(config);
+		let eleURL = `env/${stageParts[0]}/stgnum/${stageParts[1]}/sys/${stageParts[2]}/subsys/${stageParts[3]}/`
+			+ `type/${encodeURIComponent(elemParts[0])}/ele/${encodeURIComponent(elemParts[1])}?noHeadings=yes&print=history`;
+
+		try {
+			const response: IRestResponse = await EndevorRestApi.getHttp(config.repoURL + eleURL, textHead);
+
+			let jsonBody;
+			// check if error, or not found
+			if (!isNullOrUndefined(response.status) && response.status != 200 ) {
+				try {
+					// parse body, there will be messages
+					jsonBody = JSON.parse(response.body);
+				} catch (err) {
+					console.error("json parsing error: " + err);
+					return [ 'null', 'null', 'null', 'null', element ];
+				}
+				if (response.status != 206) {
+					console.error(`Error obtaining element history from url '${eleURL}':\n${jsonBody.messages}`);
+				} else {
+					// console.warn(`Element '${element}' deleted from stage '${stage}'...`);
+					return [ 'null', 'null', 'null', 'del', element ];
+				}
+				return [ 'null', 'null', 'null', 'null', element ];
+			}
+			// element history obtained, write it into file
+			const body: Buffer = response.body;
+			const sha1 = await EdoCache.addSha1Object(body, EdoCache.OBJ_LOGS);
+
+			return [ 'null', 'null', 'null', sha1, element ]; // index list format
+		} catch (err) {
+			console.error(`Exception when obtaining element history '${element}' from stage '${stage}':\n${err}`);
 			return [ 'null', 'null', 'null', 'null', element ];
 		}
 	}

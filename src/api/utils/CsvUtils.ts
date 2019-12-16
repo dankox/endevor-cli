@@ -194,25 +194,6 @@ export class CsvUtils {
 	}
 
 	/**
-	 * Get current sha1 from index line.
-	 *
-	 * Current means the latest one, if there is local, it returns local.
-	 * If there isn't local, it returns remote, or null
-	 *
-	 * @param line from index file `Object.values(IEdoIndex.elem)`
-	 */
-	public static getCurrentSha1(line: string[]): string | null {
-		// lsha1,rsha1,fingerprint,hsha2,typeName-fullElmName
-		if (line[0] != 'lsha1') { // get latest local version (if exists)
-			return line[0];
-		} else if (line[1] != 'rsha1') { // if not, get remote version (if exists)
-			return line[1];
-		}
-		// if doesn't exists, return null
-		return null;
-	}
-
-	/**
 	 * Get local sha1 from index line.
 	 *
 	 * If there is no local sha1, will return null
@@ -221,13 +202,7 @@ export class CsvUtils {
 	 */
 	public static getLocalSha1(line: string): string | null {
 		let tmpItem = CsvUtils.splitX(line, ',', 4);  // lsha1,rsha1,fingerprint,fileExt,typeName-fullElmName
-		if (tmpItem[0] != 'lsha1') { // get latest local version (if exists)
-			return tmpItem[0];
-		} else if (tmpItem[1] != 'rsha1') { // if not, get remote version (if exists)
-			return tmpItem[1];
-		}
-		// if doesn't exists, return null
-		return null;
+		return tmpItem[0];
 	}
 
 	/**
@@ -239,13 +214,7 @@ export class CsvUtils {
 	 */
 	public static getRemoteSha1(line: string): string | null {
 		let tmpItem = CsvUtils.splitX(line, ',', 4);  // lsha1,rsha1,fingerprint,fileExt,typeName-fullElmName
-		if (tmpItem[0] != 'lsha1') { // get latest local version (if exists)
-			return tmpItem[0];
-		} else if (tmpItem[1] != 'rsha1') { // if not, get remote version (if exists)
-			return tmpItem[1];
-		}
-		// if doesn't exists, return null
-		return null;
+		return tmpItem[1];
 	}
 
 	/**

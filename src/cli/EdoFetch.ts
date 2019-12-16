@@ -18,6 +18,13 @@ export class EdoFetch {
 		alias: 'a'
 	};
 
+	private static readonly edoFetchLogsOption : yargs.Options = {
+		describe: 'Fetch logs/history for elements',
+		demand: false,
+		boolean: true,
+		alias: 'l'
+	};
+
 	private static readonly edoFetchStage : yargs.PositionalOptions = {
 		describe: 'Name or sha1 id of remote stage which you want to fetch',
 		type: "string"
@@ -31,6 +38,7 @@ export class EdoFetch {
 	public static edoFetchOptions(argv: typeof yargs) {
 		return argv
 			.option('all', EdoFetch.edoFetchAllOption)
+			.option('logs', EdoFetch.edoFetchLogsOption)
 			.positional('stage', EdoFetch.edoFetchStage)
 			.positional('files', EdoFetch.edoFetchFile);
 	}
@@ -58,24 +66,28 @@ export class EdoFetch {
 
 		// pick stage if specified, or load
 		let stage = argv.stage || await FileUtils.readStage();
+		let files: string[] = argv['files'] ? argv['files'] : [];
+		const all = !isNullOrUndefined(argv.all) ? argv.all : false;
+		const logs = !isNullOrUndefined(argv.logs) ? argv.logs : false;
+		const type =  logs ? EdoCache.OBJ_LOGS : EdoCache.OBJ_BLOB;
 
 		try {
 			// for option to fetch for all stages in map
-			if (argv.all) {
+			if (all) {
 				// get map array containing all stages to fetch from
 				let stageArr = await CsvUtils.getMapArray(stage);
-				let index = await EdoFetchApi.fetchRemote(config, stage, argv.files);
-				let files = (isNullOrUndefined(argv.files) ? EdoCache.getFiles(index) : argv.files);
+				let index = await EdoFetchApi.fetchRemote(config, stage, argv.files, type);
+				let localFiles = files.length == 0 ? EdoCache.getFiles(index) : files;
 				stageArr.shift(); // remove first stage (we've got it ^)
 				for (const stg of stageArr) {
-					await EdoFetchApi.fetchRemote(config, stg, files);
+					await EdoFetchApi.fetchRemote(config, stg, localFiles, type);
 				}
-			} else if (argv.files) {
+			} else if (files.length > 0) {
 				// run fetch for specific files with search (if file specified, we might want to grab it from map)
-				await EdoFetchApi.fetchRemote(config, stage, argv.files, EdoCache.OBJ_BLOB, true);
+				await EdoFetchApi.fetchRemote(config, stage, files, type, true);
 			} else {
 				// run fetch for one stage only
-				await EdoFetchApi.fetchRemote(config, stage);
+				await EdoFetchApi.fetchRemote(config, stage, [], type);
 			}
 		} catch (err) {
 			console.error("\nError while running fetch!");
