@@ -55,7 +55,7 @@ export class EdoMergeApi {
 				throw new Error("no local and remote index! nothing to merge...");
 			}
 			// copy the remote to local, merge will just populate directory with remote changes...
-			console.error("no local index!");
+			console.log("no local index!");
 			indexRemote = await EdoCache.readIndex(indexSha1Remote); // load the remote index
 			indexLocal = EdoIndex.clone(indexRemote); // clone local index from remote
 		}

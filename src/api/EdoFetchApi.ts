@@ -46,7 +46,7 @@ export class EdoFetchApi {
 		if (indexSha1 != null) {
 			index = await EdoCache.readIndex(indexSha1); // load remote index
 		} else {
-			console.error("no remote index!"); // don't stop
+			console.log("no remote index!"); // don't stop
 			index = EdoIndex.init(stage); // init empty index with stage name
 		}
 
