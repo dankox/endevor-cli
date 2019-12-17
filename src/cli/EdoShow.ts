@@ -118,6 +118,7 @@ To show content of log, specify object with stage and back reference (remote/STA
 				if (fullLogs) {
 					let map = (await CsvUtils.getMapArray(index.stgn)).reverse();
 					let logsOut: string[][] = [];
+					let logsMissing: boolean = true;
 					for (const stage of map) {
 						try {
 							const stageLogs = await EdoCache.getLogs(`remote/${stage}`, file);
@@ -127,9 +128,14 @@ To show content of log, specify object with stage and back reference (remote/STA
 							for (const line of Object.values(stageLogs)) {
 								logsOut.push([stage, line.join(' ')]);
 							}
+							logsMissing = false;
 						} catch (err) {
 							// doesn't exist, don't care
 						}
+					}
+					if (logsMissing) {
+						throw new Error(`File ${file} doesn't have history log in ${stage}!?
+    (use 'edo fetch -l ${stage} ${file}' to get logs)`);
 					}
 
 					// if version specified get full file content of that version (only for logs)
