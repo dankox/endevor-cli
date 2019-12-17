@@ -17,6 +17,7 @@ If log is not fetched or doesn't exist in some stages in map, it will be skipped
 Syntax is similar to logs.`,
 		boolean: true,
 		demand: false,
+		conflicts: 'logs',
 		alias: 'fl'
 	};
 
@@ -26,6 +27,7 @@ To show log details, specify object with stage only (remote/STAGE:typeName/eleNa
 To show content of log, specify object with stage and back reference (remote/STAGE~0102:typeName/eleName)`,
 		boolean: true,
 		demand: false,
+		conflicts: 'fullLogs',
 		alias: 'l'
 	};
 
@@ -116,35 +118,44 @@ To show content of log, specify object with stage and back reference (remote/STA
 
 				// for fulllogs (or fulllogs with blame)
 				if (fullLogs) {
+					// grab map and build logs details from it
 					let map = (await CsvUtils.getMapArray(index.stgn)).reverse();
-					let logsOut: string[][] = [];
+					let logsOut: { [key: string]: string[]} = {};
+					let vvllStage: { [key: string]: string} = {}; // object to track what is the last vvll in current stage
 					let logsMissing: boolean = true;
+					let fileNotInRemote: boolean = false;
 					for (const stage of map) {
 						try {
 							const stageLogs = await EdoCache.getLogs(`remote/${stage}`, file);
-							if (logsOut.length > 0 && Object.keys(stageLogs).length > 0) {
-								logsOut.pop();
+							for (const vvll of Object.keys(stageLogs)) {
+								if (isNullOrUndefined(logsOut[vvll])) {
+									logsOut[vvll] = [stage, stageLogs[vvll].join(' ')];
+								}
+								vvllStage[stage] = vvll; // set vvll for stage (to get last one)
+								logsMissing = false;
 							}
-							for (const line of Object.values(stageLogs)) {
-								logsOut.push([stage, line.join(' ')]);
-							}
-							logsMissing = false;
 						} catch (err) {
+							if (err.message.includes("doesn't exist in")) {
+								fileNotInRemote = true;
+							}
 							// doesn't exist, don't care
 						}
 					}
-					if (logsMissing) {
-						throw new Error(`File ${file} doesn't have history log in ${stage}!?
-    (use 'edo fetch -l ${stage} ${file}' to get logs)`);
+					if (logsMissing && fileNotInRemote) {
+						const hint = `    (use 'edo fetch -l ${stage} ${file}' to get logs)`;
+						throw new Error(`File ${file} doesn't exist in ${stage}!\n${hint}`);
+					} else if (logsMissing) {
+						const hint = `    (use 'edo fetch -l ${stage} ${file}' to get logs)`;
+						throw new Error(`File ${file} doesn't have history log in ${stage}!\n${hint}`);
 					}
 
 					// if version specified get full file content of that version (only for logs)
 					if (refs[3].length >= 3) {
 						const vvll = refs[3].length == 3 ? "0" + refs[3] : refs[3].substr(0, 4);
 						let realStage = stage;
-						for (const log of logsOut) {
-							if (log[1].substr(0, 4) == vvll) {
-								realStage = `remote/${log[0]}`;
+						for (const key of Object.keys(logsOut)) {
+							if (key == vvll) {
+								realStage = `remote/${logsOut[vvll][0]}`;
 								break;
 							}
 						}
@@ -157,10 +168,41 @@ To show content of log, specify object with stage and back reference (remote/STA
 
 						// if no blame (so only fulllogs without version)
 						if (!blame) {
-							for (const log of logsOut) {
-								console.log(log[1]);
+							for (const key of Object.keys(logsOut)) {
+								console.log(logsOut[key][1]);
 							}
 							return;
+
+						// do blame with fullLogs
+						} else {
+							let finalOutput: string | null = null;
+							for (const stage of map) {
+								if (!isNullOrUndefined(vvllStage[stage])) {
+									const out = (await EdoCache.getLogsContent(`remote/${stage}`, file, vvllStage[stage], true)).toString(); //.split('\n');
+									if (finalOutput != null) {
+
+									} else {
+										finalOutput = out;
+									}
+								}
+
+							}
+							console.log(finalOutput);
+							return;
+							// for (const line of out) {
+							// 	const lineV = line.substr(0, 4);
+							// 	const pref = logsOut[lineV];
+							// 	let prefix = '';
+							// 	if (pref) {
+							// 		// [ vvll, user, date, ccid, comment ];
+							// 		prefix = pref.join(' ');
+							// 	}
+							// 	console.log(`(${prefix}) ${line.substr(5)}`);
+							// }
+							// const vvll = Object.keys(logsOut).pop();
+							// if (vvll) {
+							// 	const out = (await EdoCache.getLogsContent(stage, file, vvll, true)).toString().split('\n');
+							// }
 						}
 					}
 
