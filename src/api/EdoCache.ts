@@ -189,13 +189,16 @@ export class EdoCache {
 			throw new Error(`File ${file} doesn't exist in ${stage}! (run 'edo fetch ${stage} ${file}')`);
 		}
 		if (!HashUtils.isSha1(index.elem[file][3])) {
-			throw new Error(`File ${file} doesn't have history log in ${stage}! (run 'edo fetch -l ${stage} ${file}')`);
+			const hint = stage.startsWith('remote/') ?
+				`\n    (use 'edo fetch -l ${stage} ${file}' to get logs)` :
+				`\n    (use 'edo fetch -l remote/${stage} ${file}' to run it against remote stage)`;
+			throw new Error(`File ${file} doesn't have history log in ${stage}!${hint}`);
 		}
 		let buf: Buffer = await EdoCache.getSha1Object(index.elem[file][3], EdoCache.OBJ_LOGS);
 		return EdoCache.extractLogDetails(buf);
 	}
 
-	public static async getLogsContent(stage: string, file: string, vvll: string = '') {
+	public static async getLogsContent(stage: string, file: string, vvll: string, details: boolean = false) {
 		let index: IEdoIndex;
 		try {
 			index = await EdoCache.readIndex(stage);
@@ -206,13 +209,16 @@ export class EdoCache {
 			throw new Error(`File ${file} doesn't exist in ${stage}! (run 'edo fetch ${stage} ${file}')`);
 		}
 		if (!HashUtils.isSha1(index.elem[file][3])) {
-			throw new Error(`File ${file} doesn't have history log in ${stage}! (run 'edo fetch -l ${stage} ${file}')`);
+			const hint = stage.startsWith('remote/') ?
+				`\n    (use 'edo fetch -l ${stage} ${file}' to get logs)` :
+				`\n    (use 'edo fetch -l remote/${stage} ${file}' to run it against remote stage)`;
+			throw new Error(`File ${file} doesn't have history log in ${stage}!${hint}`);
 		}
 		let buf: Buffer = await EdoCache.getSha1Object(index.elem[file][3], EdoCache.OBJ_LOGS);
 		let logs = EdoCache.extractLogDetails(buf);
 
 		if (!isNullOrUndefined(logs[vvll])) {
-			return EdoCache.extractLogContent(buf, vvll);
+			return EdoCache.extractLogContent(buf, vvll, details);
 		} else {
 			throw new Error(`Incorrect change specified '${vvll}'! (run 'edo show -l ${stage}:${file}' to list available changes)`);
 		}
@@ -236,7 +242,7 @@ export class EdoCache {
 		return logDetails;
 	}
 
-	public static extractLogContent(logBuf: Buffer, vvll: string) {
+	public static extractLogContent(logBuf: Buffer, vvll: string, details: boolean = false) {
 		let lines: string[] = logBuf.toString().split('\n');
 		let output: string[] = [];
 		let foundDetail: boolean = false;
@@ -248,8 +254,11 @@ export class EdoCache {
 			} else if (line[2] == '+') {
 				if (line.slice(3, 7) > vvll) continue;
 				if (line[7] == '-' && line.slice(8, 12) <= vvll) continue;
-				output.push(line.slice(13));
-				// output.push(line.trimRight());
+				if (details) {
+					output.push(line.slice(3, 7) + " " + line.slice(13));
+				} else {
+					output.push(line.slice(13));
+				}
 			}
 		}
 		return Buffer.from(output.join('\n'));
