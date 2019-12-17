@@ -242,6 +242,32 @@ export class EdoCache {
 		return logDetails;
 	}
 
+	public static mergeLogContentPrevious(logPrev: Buffer, logNew: Buffer, vvll: string) {
+		let prev: string[] = logPrev.toString().split('\n');
+		let cur: string[] = logNew.toString().split('\n');
+		let output: string[] = [];
+		let foundDetail: boolean = false;
+		let prevCounter: number = 0;
+		for (const line of cur) {
+			if (!foundDetail && line[2] == ' ') {
+				if (line.slice(3, 7) == vvll) {
+					foundDetail = true;
+				}
+			} else if (line[2] == '+') {
+				// if (line.slice(3, 7) > vvll) continue;
+				if (line.slice(3, 7) == vvll) {
+					if (line[7] != '-') {
+						output.push(prev[prevCounter]);
+					}
+					prevCounter++;
+					continue;
+				} else if (line[7] == '-') continue;
+				output.push(line.slice(3, 7) + " " + line.slice(13));
+			}
+		}
+		return Buffer.from(output.join('\n'));
+	}
+
 	public static extractLogContent(logBuf: Buffer, vvll: string, details: boolean = false) {
 		let lines: string[] = logBuf.toString().split('\n');
 		let output: string[] = [];

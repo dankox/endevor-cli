@@ -175,19 +175,41 @@ To show content of log, specify object with stage and back reference (remote/STA
 
 						// do blame with fullLogs
 						} else {
-							let finalOutput: string | null = null;
+							let finalOutput: Buffer | null = null;
+							let lastVVLL: string | null = null;
 							for (const stage of map) {
 								if (!isNullOrUndefined(vvllStage[stage])) {
-									const out = (await EdoCache.getLogsContent(`remote/${stage}`, file, vvllStage[stage], true)).toString(); //.split('\n');
-									if (finalOutput != null) {
-
+									// const out = (await EdoCache.getLogsContent(`remote/${stage}`, file, vvllStage[stage], true)).toString(); //.split('\n');
+									if (finalOutput != null && !isNullOrUndefined(lastVVLL)) {
+										// console.log(`running for other stage ${stage}`);
+										const index = await EdoCache.readIndex(`remote/${stage}`);
+										const buf: Buffer = await EdoCache.getSha1Object(index.elem[file][3], EdoCache.OBJ_LOGS);
+										// const newLog = EdoCache.extractLogContent(buf, vvllStage[stage], true);
+										finalOutput = EdoCache.mergeLogContentPrevious(finalOutput, buf, lastVVLL);
+										lastVVLL = vvllStage[stage];
 									} else {
-										finalOutput = out;
+										finalOutput = await EdoCache.getLogsContent(`remote/${stage}`, file, vvllStage[stage], true);
+										lastVVLL = vvllStage[stage];
 									}
 								}
 
 							}
-							console.log(finalOutput);
+							if (finalOutput != null) {
+								const out = finalOutput.toString().split('\n');
+								for (const line of out) {
+									const lineV = line.substr(0, 4);
+									const pref = logsOut[lineV];
+									let prefix = '';
+									if (pref) {
+										// [ vvll, user, date, ccid, comment ];
+										prefix = pref.slice(1).join(' ');
+									}
+									console.log(`(${prefix}) ${line.substr(5)}`);
+								}
+							} else {
+								console.error(`no logs for file ${file}!`);
+								process.exit(1);
+							}
 							return;
 							// for (const line of out) {
 							// 	const lineV = line.substr(0, 4);
