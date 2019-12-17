@@ -191,7 +191,7 @@ export class EdoCache {
 		if (!HashUtils.isSha1(index.elem[file][3])) {
 			const hint = stage.startsWith('remote/') ?
 				`\n    (use 'edo fetch -l ${stage} ${file}' to get logs)` :
-				`\n    (use 'edo fetch -l remote/${stage} ${file}' to run it against remote stage)`;
+				`\n    (use 'edo show [-l | -b] remote/${stage} ${file}' to run it against remote stage)`;
 			throw new Error(`File ${file} doesn't have history log in ${stage}!${hint}`);
 		}
 		let buf: Buffer = await EdoCache.getSha1Object(index.elem[file][3], EdoCache.OBJ_LOGS);
@@ -211,7 +211,7 @@ export class EdoCache {
 		if (!HashUtils.isSha1(index.elem[file][3])) {
 			const hint = stage.startsWith('remote/') ?
 				`\n    (use 'edo fetch -l ${stage} ${file}' to get logs)` :
-				`\n    (use 'edo fetch -l remote/${stage} ${file}' to run it against remote stage)`;
+				`\n    (use 'edo show [-l | -b] remote/${stage} ${file}' to run it against remote stage)`;
 			throw new Error(`File ${file} doesn't have history log in ${stage}!${hint}`);
 		}
 		let buf: Buffer = await EdoCache.getSha1Object(index.elem[file][3], EdoCache.OBJ_LOGS);

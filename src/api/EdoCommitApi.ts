@@ -49,6 +49,19 @@ export class EdoCommitApi {
 		let mergeIndex: IEdoIndex | null = await EdoCache.readMergeIndex();
 		let conflictFiles: string[] = await FileUtils.getConflictFiles();
 
+		// no changes, but there is a MERGE file (maybe there was conflict and resolved into the same file as commited)
+		if (diffFiles.length == 0 && mergeIndex != null) {
+			const files = Object.keys(index.elem);
+			for (const file of files) {
+				// update fingerprints
+				if (!isNullOrUndefined(mergeIndex.elem[file])) {
+					index.elem[file][2] = mergeIndex.elem[file][2];
+				}
+			}
+			conflictFiles = [];
+			updateIndex = true; // update index with new fingerprints
+		}
+
 		// iterate over changes and put them in index
 		for (const file of diffFiles) {
 			if (files.length > 0 && files.indexOf(file) < 0) continue; // skip files not selected
