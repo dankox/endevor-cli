@@ -1,9 +1,9 @@
-# endevor-cli
-Endevor CLI for basic manipulation with elements in sandbox environment
+# Edo - Endevor SCM CLI
+Edo is scm tool for managing elements in Endevor SCM inventory on a local PC.
 
 ## description
 
-Endevor CLI short command 'edo' is used to provide similar user experience as git cli.
+Edo is used to provide similar user experience as git cli. It has basic commands implemented as decribed below.
 
 To get list of commands and help run
 
@@ -13,33 +13,45 @@ You can init repository from specific Endevor environment (accessed thru Endevor
 
 `edo init http://host:port/EndevorService/rest/CONFIG`
 
-Checkout specific subsystem/sandbox
+Checkout specific subsystem/sandbox.
 
 `edo checkout ENV-1-SYS-SUB`
 
-Fetch list of elements
+In edo terminology, this is called stage and can be further refered as STAGE.
+Edo database can have two stages (for one subsystem), remote and local.
+Remote stage refers to the content which is located in Endevor.
+Local stage refers to content which is on local PC and can be updated by user.
+
+
+Fetch elements from Endevor to remote stage can be done this way.
 
 `edo fetch`
 
-Pull elements from remote repository (Endevor environment)
+After fetch, user should merge the remote stage into his local stage.
+
+`edo merge`
+
+To make work easier, user can run pull commnand to execute fetch and merge in one command.
 
 `edo pull`
 
-Check status, changes against local, remote repo
+Edo doesn't have staging area as git. All the merging is done in working directory.
 
-`edo status`
-
-Commit to local repository
+Therefore after each merge, user should run commit to commit changes into his local stage.
 
 `edo commit`
 
-Push to remote repository (Endevor environment) [NOT IMPLEMENTED YET!!!]
+To check current status of working directory against local stage, user can run status. It also shows if there is any difference between local and remote stage (if fetch was run and wasn't merged, or if new files were introduced).
 
-`edo push`
+`edo status`
+
+To update Endevor inventory, push command can be run. User needs to provide message for push, which is used as ccid and comment in Endevor. Ccid is first word in the message and if the word is longer than 12 character, it's truncated to 12.
+
+`edo push -m 'ccid comment'`
 
 ## installation
 
-Clone the git repository
+Clone this git repository
 
 `git clone https://github.com/dankox/endevor-cli.git`
 
