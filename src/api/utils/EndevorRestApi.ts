@@ -1,19 +1,67 @@
 import FormData from "form-data";
-import * as fs from "fs";
 import * as nodeurl from "url";
 import http from "http";
 import https from "https";
 import * as zlib from "zlib";
 import { IRestResponse } from "../doc/IRestResponse";
 import { isNullOrUndefined } from "util";
+import { ISettings } from "../doc/ISettings";
 
 /**
  * Endevor Rest API functions
  */
 export class EndevorRestApi {
+	/**
+	 * Get Authorization header from config.cred64 property.
+	 *
+	 * @param cred64 base64 encoded user:pass string (`ISettings.cred64`)
+	 * @returns header `{ Authorization: "Basic xxxx" }`
+	 */
 	public static getAuthHeader(cred64: string): any {
 		const headers = {
 			"Authorization": "Basic " + cred64
+		};
+		return headers;
+	}
+
+	/**
+	 * Get header object for running Endevor List Rest API requests.
+	 *
+	 * @param config `ISettings` obtained from config file.
+	 * @returns header object with `Accept` and `Authorization`.
+	 */
+	public static getJsonHeader(config: ISettings): any {
+		const headers = {
+			"Accept": "application/json",
+			...EndevorRestApi.getAuthHeader(config.cred64)
+		};
+		return headers;
+	}
+
+	/**
+	 * Get header object for running Endevor Retrieve Rest API requests.
+	 *
+	 * @param config `ISettings` obtained from config file.
+	 * @returns header object with `Accept` and `Authorization`.
+	 */
+	public static getBinaryHeader(config: ISettings): any {
+		const headers = {
+			"Accept": "application/octet-stream",
+			...EndevorRestApi.getAuthHeader(config.cred64)
+		};
+		return headers;
+	}
+
+	/**
+	 * Get header object for running Endevor Print Rest API requests.
+	 *
+	 * @param config `ISettings` obtained from config file.
+	 * @returns header object with `Accept` and `Authorization`.
+	 */
+	public static getTextHeader(config: ISettings): any {
+		const headers = {
+			"Accept": "text/plain",
+			...EndevorRestApi.getAuthHeader(config.cred64)
 		};
 		return headers;
 	}
@@ -49,13 +97,13 @@ export class EndevorRestApi {
 	 * @param comment for add file
 	 * @param headers used in the request
 	 */
-	public static async addElementHttp(url: string, file: string, ccid: string, comment: string, fingerprint: string, headers: any): Promise<IRestResponse> {
-		return new Promise<any>((resolve, reject) => {
+	public static async addElementHttp(url: string, fileBuf: Buffer, ccid: string, comment: string, fingerprint: string, headers: any): Promise<IRestResponse> {
+		return new Promise<IRestResponse>((resolve, reject) => {
 			let addForm = new FormData();
 			addForm.append("ccid", ccid);
 			addForm.append("comment", comment);
 			addForm.append("fingerprint", fingerprint);
-			addForm.append("fromFile", fs.createReadStream(file));
+			addForm.append("fromFile", fileBuf);
 			addForm.append("oveSign", "yes"); // TODO: maybe do option on this????
 			headers = {
 				...addForm.getHeaders(),
@@ -141,7 +189,7 @@ export class EndevorRestApi {
 				} else if (response.headers['content-type'] == 'application/octet-stream') {
 					responseJson.body = Buffer.concat(data);
 				} else if (response.headers['content-type'] == 'text/plain') {
-					responseJson.body = Buffer.concat(data).toString();
+					responseJson.body = Buffer.concat(data); //.toString();
 				} else {
 					responseJson.body = Buffer.concat(data); // data.join('');
 				}
