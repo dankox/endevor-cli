@@ -4,6 +4,7 @@ import { ISettings } from '../api/doc/ISettings';
 import { isNullOrUndefined } from 'util';
 import { EdoPushApi } from '../api/EdoPushApi';
 import { CsvUtils } from '../api/utils/CsvUtils';
+import { ConsoleUtils } from '../api/utils/ConsoleUtils';
 
 /**
  * Edo pull, meaning do fetch and merge together
@@ -33,6 +34,21 @@ export class EdoPush {
 	 */
 	public static async process(argv: any) {
 		const config: ISettings = await FileUtils.readSettings();
+		// verify credentials before running all the requests
+		try {
+			const creds = CsvUtils.splitX(Buffer.from(config.cred64, "base64").toString(), ':', 1);
+			const cred64 = await ConsoleUtils.verifyCredentials(config.repoURL, creds[0], creds[1]);
+			if (config.cred64 != cred64) {
+				config.cred64 = cred64;
+				await FileUtils.writeSettings(config);
+			}
+		} catch (err) {
+			console.error("Error while verifying credentials.\n" + err.message);
+			process.exit(1);
+		}
+
+
+
 		const stage: string = await FileUtils.readStage();
 		const files: string[] = (isNullOrUndefined(argv.files) ? [] : argv.files);
 		const msgA: string[] = CsvUtils.splitX(argv.message, ' ', 1);

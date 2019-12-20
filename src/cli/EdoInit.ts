@@ -90,7 +90,3 @@ export class EdoInit {
 		}
 	}
 }
-
-
-// Test
-// EdoInit.process({url: "http://ca31.ca.com:9009/EndevorService/rest/ENWSTSTC"});

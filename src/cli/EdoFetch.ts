@@ -6,6 +6,7 @@ import { EdoFetchApi } from "../api/EdoFetchApi";
 import { EdoCache } from "../api/EdoCache";
 import { HashUtils } from "../api/utils/HashUtils";
 import { isNullOrUndefined } from "util";
+import { ConsoleUtils } from "../api/utils/ConsoleUtils";
 
 /**
  * Edo fetch remote stage to local
@@ -50,6 +51,19 @@ export class EdoFetch {
 	 */
 	public static async process(argv: any) {
 		let config: ISettings = await FileUtils.readSettings();
+		// verify credentials before running all the requests
+		try {
+			const creds = CsvUtils.splitX(Buffer.from(config.cred64, "base64").toString(), ':', 1);
+			const cred64 = await ConsoleUtils.verifyCredentials(config.repoURL, creds[0], creds[1]);
+			if (config.cred64 != cred64) {
+				config.cred64 = cred64;
+				await FileUtils.writeSettings(config);
+			}
+		} catch (err) {
+			console.error("Error while verifying credentials.\n" + err.message);
+			process.exit(1);
+		}
+
 		// find out if stage argument is stage or file
 		if (argv.stage) {
 			if (!HashUtils.isSha1(argv.stage)) {

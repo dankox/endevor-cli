@@ -84,17 +84,17 @@ export class ConsoleUtils {
 	public static async verifyCredentials(repoURL: string, user: string | undefined, pass: string | undefined, count: number = 1): Promise<string> {
 		// safeguard against blocking account
 		if (count >= 3) {
-			throw new Error("2 times failure, check you password and restart request!");
+			throw new Error("2 times failure, check your password and restart request!");
 		}
 
-		if (isNullOrUndefined(user)) {
+		if (isNullOrUndefined(user) || user.length == 0) {
 			try {
 				user = await this.promptValue("username: ");
 			} catch (err) {
 				throw new Error(err);
 			}
 		}
-		if (isNullOrUndefined(pass)) {
+		if (isNullOrUndefined(pass) || pass.length == 0) {
 			try {
 				pass = await this.promptPassword("password: ");
 			} catch (err) {
@@ -110,11 +110,12 @@ export class ConsoleUtils {
 		};
 
 		try {
+			console.log("connecting...");
 			let response = await EndevorRestApi.getHttp(repoURL + ConsoleUtils.auth, headers);
 			if (response.status != 200 && response.status != 206) {
 				if (response.status == 401) {
 					console.error("Invalid credentials!");
-					return this.verifyCredentials(repoURL, undefined, undefined, count + 1);
+					return ConsoleUtils.verifyCredentials(repoURL, undefined, undefined, count + 1);
 				}
 				// console.error(response);
 				throw new Error("Credentials invalid!\n" + response.status);
