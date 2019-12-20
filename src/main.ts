@@ -14,7 +14,7 @@ import { EdoCommit } from './cli/EdoCommit';
 import { EdoPush } from './cli/EdoPush';
 import { EdoShow } from './cli/EdoShow';
 import { EdoReset } from './cli/EdoReset';
-import { EdoDifftool } from './EdoDifftool';
+import { EdoDifftool } from './cli/EdoDifftool';
 
 yargs.usage('Usage: $0 <command> [options]')
 	.scriptName('edo')
@@ -30,7 +30,7 @@ yargs.usage('Usage: $0 <command> [options]')
 	.command('restore [files..]', 'Discard changes in working directory', EdoDiscard.edoDiscardOptions, EdoDiscard.process)
 	.command('discard [files..]', 'Discard changes in working directory (because I always type discard instead of restore :)', EdoDiscard.edoDiscardOptions, EdoDiscard.process)
 	.command('diff [stage-new] [stage-old] [files..]', 'Diff working directory against local stage, or remote, etc.', EdoDiff.edoDiffOptions, EdoDiff.process)
-	.command('difftool [files..]', 'Use difftool to diff files in working directory against local stage, or remote, etc.', EdoDifftool.edoDifftoolOptions, EdoDifftool.difftool)
+	.command('difftool [stage-new] [stage-old] [files..]', 'Use difftool to diff files in working directory against local stage, or remote, or between stages, etc.', EdoDifftool.edoDifftoolOptions, EdoDifftool.process)
 	.command('cat-file <file>', 'cat database file specified by sha1 identifier', EdoCatFile.edoCatOptions, EdoCatFile.process)
 	.command('show <object>', 'show object from edo database', EdoShow.edoShowOptions, EdoShow.process)
 	.command('reset [files..]', 'edo reset commited files to remote stage version', EdoReset.edoResetOptions, EdoReset.process)

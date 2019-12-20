@@ -72,14 +72,6 @@ export class EdoDiffApi {
 	 * Default is `false`
 	 * @returns
 	 * Example of output:
-	 * for diff between stages
-	 * ```
-	 * {
-	 * "type/elem1": [ 'new-sha1', 'old-sha1' ],
-	 * "type/elem2": [ 'null', 'old-sha1' ],
-	 * "type/elem3": [ 'new-sha1', 'null' ]
-	 * }
-	 * ```
 	 * for diff between working directory and stage
 	 * ```
 	 * {

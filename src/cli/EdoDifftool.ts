@@ -4,17 +4,19 @@ import { isNullOrUndefined } from "util";
 import { EdoDiffApi } from "../api/EdoDiffApi";
 import { EdoCache } from "../api/EdoCache";
 import { HashUtils } from "../api/utils/HashUtils";
+import { spawnSync } from "child_process";
+import { ConsoleUtils } from "../api/utils/ConsoleUtils";
 
 /**
  * Edo diff files in working directory with checked out stage
  */
-export class EdoDiff {
-	private static readonly edoDiffStage : yargs.PositionalOptions = {
+export class EdoDifftool {
+	private static readonly edoDifftoolStage : yargs.PositionalOptions = {
 		describe: 'Name or sha1 id of stage for diff',
 		type: "string"
 	};
 
-	private static readonly edoDiffFiles : yargs.PositionalOptions = {
+	private static readonly edoDifftoolFiles : yargs.PositionalOptions = {
 		describe: 'File names which you want to diff with local/remote stage'
 	};
 
@@ -31,7 +33,7 @@ export class EdoDiff {
 		boolean: true
 	};
 
-	private static readonly edoDiffRemoteBase : yargs.Options = {
+	private static readonly edoDifftoolBase : yargs.Options = {
 		describe: 'Diff files with base changes on specified stage (old stage or current stage).',
 		demand: false,
 		boolean: true,
@@ -39,14 +41,13 @@ export class EdoDiff {
 		alias: 'b'
 	};
 
-	public static edoDiffOptions(argv: typeof yargs) {
+	public static edoDifftoolOptions(argv: typeof yargs) {
 		return argv
-			.option('base', EdoDiff.edoDiffRemoteBase)
-			.option('name-only', EdoDiff.edoNameOnly)
-			.option('ignore-space', EdoDiff.edoIgnoreSpace)
-			.positional('stage-new', EdoDiff.edoDiffStage)
-			.positional('stage-old', EdoDiff.edoDiffStage)
-			.positional('files', EdoDiff.edoDiffFiles);
+			.option('base', EdoDifftool.edoDifftoolBase)
+			.option('ignore-space', EdoDifftool.edoIgnoreSpace)
+			.positional('stage-new', EdoDifftool.edoDifftoolStage)
+			.positional('stage-old', EdoDifftool.edoDifftoolStage)
+			.positional('files', EdoDifftool.edoDifftoolFiles);
 	}
 
 
@@ -124,47 +125,54 @@ export class EdoDiff {
 			for (const key of changedFiles) {
 				if (!isNullOrUndefined(files) && files.length > 0 && files.indexOf(key) < 0) continue;
 
-				if (nameOnly) {
-					if (changes[key][0] == 'null') {
-						console.log(`D %s`, key);
-						continue;
-					} else if (changes[key][1] == 'null') {
-						console.log(`A %s`, key);
-						continue;
-					} else if (!ignoreSpace) {
-						console.log(`M %s`, key);
-						continue;
-					}
+				if (changes[key][0] == 'null') {
+					// don't deal with delete (yet???)
+					continue;
+				} else if (changes[key][1] == 'null') {
+					// don't deal with add (yet???)
+					continue;
+				} else if (ignoreSpace) {
+					const output: string[] = await EdoDiffApi.diff(key, changes[key], ignoreSpace);
+					if (output.length == 0) continue;
 				}
 
-				const output: string[] = await EdoDiffApi.diff(key, changes[key], ignoreSpace);
-				if (output.length > 0) {
-					if (nameOnly) {
-						console.log(`M %s`, key);
-						continue;
-					}
-					hasChanges = true;
-					// show diff output
-					let colors = true;
-					if (!colors) {
-						console.log(output.join("\n"));
-					} else {
-						for (let line of output) {
-							if (line[0] == ' ') {
-								console.log(line); // normal
-							} else if (line[0] == '=' || line.startsWith('--- ') || line.startsWith('+++ ')) {
-								console.log('\x1b[1m\x1b[37m%s\x1b[0m', line); // white
-							} else if (line[0] == '-') {
-								console.log('\x1b[31m%s\x1b[0m', line); // red
-							} else if (line[0] == '+') {
-								console.log('\x1b[32m%s\x1b[0m', line); // green
-							}
-						}
-					}
+				hasChanges = true;
+				let yn = await ConsoleUtils.promptValue(`Diffing file ${key} [Y/n]`, 'y');
+				if (yn.toLowerCase() == 'n' || yn.toLowerCase() == 'no') continue;
+
+				let local: string = '';
+				let remote: string = '';
+				let lTmp: boolean = false;
+				let rTmp: boolean = false;
+				if (HashUtils.isSha1(changes[key][0])) {
+					const buf: Buffer = await EdoCache.getSha1Object(changes[key][0], EdoCache.OBJ_BLOB);
+					local = await FileUtils.createTempFile(buf);
+					lTmp = true;
+				} else {
+					local = key;
 				}
+				if (HashUtils.isSha1(changes[key][1])) {
+					const buf: Buffer = await EdoCache.getSha1Object(changes[key][1], EdoCache.OBJ_BLOB);
+					remote = await FileUtils.createTempFile(buf);
+					rTmp = true;
+				} else {
+					remote = key;
+				}
+
+				// TODO: make customizable thru config file (to use vim or so)
+				spawnSync('code', ['--wait', '--diff', remote, local], { shell: true });
+
+				// remove temporary files
+				if (lTmp) {
+					await FileUtils.unlink(local);
+				}
+				if (rTmp) {
+					await FileUtils.unlink(remote);
+				}
+
 			} // for-end
 
-			if (!hasChanges && !nameOnly) {
+			if (!hasChanges) {
 				console.log("no changes in working directory!");
 				process.exit(0);
 			}

@@ -64,7 +64,7 @@ export class ConsoleUtils {
 		};
 		if (isNullOrUndefined(user)) {
 			try {
-				ret.user = await this.promptValue("username: ");
+				ret.user = await ConsoleUtils.promptValue("username: ");
 			} catch (err) {
 				// console.error("Error while prompting for user name: " + err);
 				throw new Error(err);
@@ -72,7 +72,7 @@ export class ConsoleUtils {
 		}
 		if (isNullOrUndefined(pass)) {
 			try {
-				ret.pass = await this.promptPassword("password: ");
+				ret.pass = await ConsoleUtils.promptPassword("password: ");
 			} catch (err) {
 				// console.error("Error while prompting for password: " + err);
 				throw new Error(err);
@@ -89,14 +89,14 @@ export class ConsoleUtils {
 
 		if (isNullOrUndefined(user) || user.length == 0) {
 			try {
-				user = await this.promptValue("username: ");
+				user = await ConsoleUtils.promptValue("username: ");
 			} catch (err) {
 				throw new Error(err);
 			}
 		}
 		if (isNullOrUndefined(pass) || pass.length == 0) {
 			try {
-				pass = await this.promptPassword("password: ");
+				pass = await ConsoleUtils.promptPassword("password: ");
 			} catch (err) {
 				throw new Error(err);
 			}

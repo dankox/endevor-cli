@@ -1,12 +1,11 @@
 import FormData from "form-data";
-import * as fs from "fs";
 import * as nodeurl from "url";
 import http from "http";
 import https from "https";
 import * as zlib from "zlib";
 import { IRestResponse } from "../doc/IRestResponse";
 import { isNullOrUndefined } from "util";
-import { ISettings } from "../../doc/ISettings";
+import { ISettings } from "../doc/ISettings";
 
 /**
  * Endevor Rest API functions
