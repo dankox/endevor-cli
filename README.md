@@ -22,30 +22,29 @@ Edo database can have two stages (for one subsystem), remote and local.
 Remote stage refers to the content which is located in Endevor.
 Local stage refers to content which is on local PC and can be updated by user.
 
-
 Fetch elements from Endevor to remote stage can be done this way.
 
 `edo fetch`
 
-After fetch, user should merge the remote stage into his local stage.
+After fetch, merge of the remote stage into his local stage should be done.
 
 `edo merge`
 
-To make work easier, user can run pull commnand to execute fetch and merge in one command.
+To make work easier, use pull commnand to execute fetch and merge in one command.
 
 `edo pull`
 
 Edo doesn't have staging area as git. All the merging is done in working directory.
 
-Therefore after each merge, user should run commit to commit changes into his local stage.
+Therefore after each merge, execute commit to commit changes into his local stage.
 
 `edo commit`
 
-To check current status of working directory against local stage, user can run status. It also shows if there is any difference between local and remote stage (if fetch was run and wasn't merged, or if new files were introduced).
+To check current status of working directory against local stage, run status. It also shows if there is any difference between local and remote stage (if fetch was run and wasn't merged, or if new files were introduced).
 
 `edo status`
 
-To update Endevor inventory, push command can be run. User needs to provide message for push, which is used as ccid and comment in Endevor. Ccid is first word in the message and if the word is longer than 12 character, it's truncated to 12.
+To update Endevor inventory, execute push command. Message is required for push, which is used as ccid and comment in Endevor. Ccid is first word in the message and if the word is longer than 12 character, it's truncated to 12.
 
 `edo push -m 'ccid comment'`
 
@@ -55,7 +54,7 @@ Clone this git repository
 
 `git clone https://github.com/dankox/endevor-cli.git`
 
-With NPM install and link to your path
+With NPM, run install to get all the packages, build for compilation and link to make the command available for use in command line.
 
 `npm install`
 
