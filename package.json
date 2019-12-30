@@ -1,6 +1,6 @@
 {
   "name": "endevor-cli",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Endevor SCM cli utility for maintaining local repo of Endevor environment",
   "main": "lib/main.js",
   "bin": {
