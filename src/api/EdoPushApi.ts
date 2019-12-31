@@ -30,7 +30,7 @@ export class EdoPushApi {
 		let index: IEdoIndex;
 		let remoteIndex: IEdoIndex;
 
-		// get index
+		// get local index
 		if (HashUtils.isSha1(stage)) {
 			index = await EdoCache.readIndex(stage);
 			stage = index.stgn;
@@ -40,7 +40,7 @@ export class EdoPushApi {
 				throw new Error(`Stage ${stage} doesn't exist!`);
 			}
 			if (!HashUtils.isSha1(sha1)) {
-				throw new Error(`Local stage ${stage} doesn't exist! Nothing to push...`);
+				throw new Error(`Local stage ${stage} doesn't have index! Run 'edo pull'...`);
 			}
 			index = await EdoCache.readIndex(sha1);
 		}
@@ -53,7 +53,7 @@ export class EdoPushApi {
 
 		const fingers: string[] = EdoDiffApi.diffIndexFinger(index, remoteIndex);
 		if (fingers.length > 0) {
-			throw new Error(`Local stage not in sync with remote stage! Run 'edo merge' to merge changes from remote...`);
+			throw new Error(`Local stage not in sync with remote stage! Run 'edo merge' and 'edo commit' to merge changes from remote...`);
 		}
 
 		// grab differences

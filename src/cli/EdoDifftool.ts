@@ -33,17 +33,17 @@ export class EdoDifftool {
 		boolean: true
 	};
 
-	private static readonly edoDifftoolBase : yargs.Options = {
-		describe: 'Diff files with base changes on specified stage (old stage or current stage).',
+	private static readonly edoDifftoolCached : yargs.Options = {
+		describe: 'Diff cached files on specified stage (committed changes against base changes).',
 		demand: false,
 		boolean: true,
-		conflicts: "cached",
-		alias: 'b'
+		conflicts: "stage-old",
+		alias: 'c'
 	};
 
 	public static edoDifftoolOptions(argv: typeof yargs) {
 		return argv
-			.option('base', EdoDifftool.edoDifftoolBase)
+			.option('cached', EdoDifftool.edoDifftoolCached)
 			.option('ignore-space', EdoDifftool.edoIgnoreSpace)
 			.positional('stage-new', EdoDifftool.edoDifftoolStage)
 			.positional('stage-old', EdoDifftool.edoDifftoolStage)
@@ -90,7 +90,7 @@ export class EdoDifftool {
 		}
 
 		// setup options
-		let base: boolean = !isNullOrUndefined(argv.base) ? argv.base : false;
+		let cached: boolean = !isNullOrUndefined(argv.cached) ? argv.cached : false;
 		let nameOnly: boolean = !isNullOrUndefined(argv["name-only"]) ? argv["name-only"] : false;
 		let ignoreSpace: boolean = !isNullOrUndefined(argv["ignore-space"]) ? argv["ignore-space"] : false;
 
@@ -99,7 +99,17 @@ export class EdoDifftool {
 			// get changes between working directory and stage
 			if (stageNew == '') {
 				let stage: string = (stageOld.match(/^(remote\/)*STAGE/) ? stageOld.replace('STAGE', (await FileUtils.readStage(true))) : stageOld);
-				changes = await EdoDiffApi.getFileDiff(stage, base);
+				if (cached) {
+					const sha1 = await FileUtils.readRefs(stage);
+					if (sha1 != null) {
+						const index = await EdoCache.readIndex(sha1);
+						changes = EdoDiffApi.getIndexDiff(index);
+					} else {
+						throw new Error(`Error while reading stage ${stage}. Doesn't exist, run 'edo  fetch ${stage}'...`);
+					}
+				} else {
+					changes = await EdoDiffApi.getFileDiff(stage);
+				}
 
 			// get changes between two stages
 			} else {
@@ -110,7 +120,7 @@ export class EdoDifftool {
 				if (newSha1 != null && oldSha1 != null) {
 					const newIndex = await EdoCache.readIndex(newSha1);
 					const oldIndex = await EdoCache.readIndex(oldSha1);
-					changes = EdoDiffApi.getIndexDiff(newIndex, oldIndex, base);
+					changes = EdoDiffApi.getIndexDiff(newIndex, oldIndex);
 				} else {
 					if (newSha1 == null) console.error(`Error while reading stage ${stageNew}. Doesn't exist, run 'edo fetch ${stageNew}'...`);
 					if (oldSha1 == null) console.error(`Error while reading stage ${stageOld}. Doesn't exist, run 'edo fetch ${stageOld}'...`);

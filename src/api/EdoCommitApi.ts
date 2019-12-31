@@ -15,7 +15,7 @@ export class EdoCommitApi {
 	 *
 	 * Commit can be limited to specific files from the array passed to it.
 	 * By default, commit is done only on files in the index.
-	 * With option `all` commit can be done on added or deleted of files.
+	 * With option `all` commit can be done on added or deleted files.
 	 *
 	 * @param stage
 	 * @param files
@@ -42,7 +42,7 @@ export class EdoCommitApi {
 			index = await EdoCache.readIndex(sha1);
 		}
 
-		// grab differences
+		// grab differences and load .edo/MERGE
 		let diffs = await EdoDiffApi.getFileDiff(stage);
 		let diffFiles = Object.keys(diffs);
 		let updateIndex: boolean = false;
@@ -86,19 +86,28 @@ export class EdoCommitApi {
 				isAdd = true;
 			}
 
-			// load file from index
-			const tmpItem: string[] = index.elem[file];
+			// save file to databse
 			const fileBuf: Buffer = await FileUtils.readFile(FileUtils.cwdEdo + file);
 			const fileSha1: string = await EdoCache.addSha1Object(fileBuf, EdoCache.OBJ_BLOB);
 
-			// lsha1, rsha1, fingerprint, hsha1, type/element
+			// lsha1, rsha1(base), fingerprint, hsha1, type/element
 			if (isAdd) {
 				index.elem[file] = [ fileSha1, fileSha1, 'null', 'null', file ];
 			} else {
 				if (isNullOrUndefined(mergeIndex) || isNullOrUndefined(mergeIndex.elem[file])) {
-					index.elem[file] = [ fileSha1, tmpItem[0], tmpItem[2], tmpItem[3], file ];
+					index.elem[file][0] = fileSha1; // update only lsha1 (keep base)
 				} else {
-					index.elem[file] = [ fileSha1, tmpItem[0], mergeIndex.elem[file][2], tmpItem[3], file ];
+					if (index.stgn == mergeIndex.stgn) {
+						// for merge of remote to local, merge base sha1 and fingerprint
+						index.elem[file][0] = fileSha1;
+						index.elem[file][1] = mergeIndex.elem[file][1];
+						index.elem[file][2] = mergeIndex.elem[file][2];
+					} else {
+						// for merge of different stages, merge only fingerprint
+						index.elem[file][0] = fileSha1;
+						index.elem[file][2] = mergeIndex.elem[file][2];
+					}
+					delete mergeIndex.elem[file]; // remove from merge index
 				}
 			}
 			updateIndex = true;
@@ -114,10 +123,14 @@ export class EdoCommitApi {
 			const indexSha1 = await EdoCache.writeIndex(index);
 			if (indexSha1 != null) {
 				FileUtils.writeRefs(stage, indexSha1); // update refs
+
 				// if merge files were presented, deal with them
 				if (!isNullOrUndefined(mergeIndex) && conflictFiles.length == 0) {
 					try {
-						await FileUtils.unlink(`${FileUtils.getEdoDir()}/${FileUtils.mergeFile}`);
+						// check if all files where merged (equal fingerprints or doesn't exist)
+						if (EdoDiffApi.diffIndexFinger(index, mergeIndex).length == 0) {
+							await FileUtils.unlink(`${FileUtils.getEdoDir()}/${FileUtils.mergeFile}`);
+						}
 						await FileUtils.unlink(`${FileUtils.getEdoDir()}/${FileUtils.mergeConflictFile}`);
 					} catch (err) {
 						// Don't care, unlink might fail for mergeConflictFile if there were no conflicts
