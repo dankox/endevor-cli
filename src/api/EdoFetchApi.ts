@@ -99,7 +99,11 @@ export class EdoFetchApi {
 				}
 				// ----------------------------------------------------[===
 				process.stdout.write(`fetching bases for <${stage}>    `);
-				let baseKeys: string[][] = await AsyncUtils.promiseAll(baseFiles.map(item => EdoFetchApi.fetchElement(config, stage, item, search, (index.elem[item] && index.elem[item][5]))), AsyncUtils.progressBar);
+				let baseKeys: string[][] = [];
+				// do not call it when there is no base file, it might get stuck...
+				if (baseFiles.length > 0) {
+					baseKeys = await AsyncUtils.promiseAll(baseFiles.map(item => EdoFetchApi.fetchElement(config, stage, item, search, (index.elem[item] && index.elem[item][5]))), AsyncUtils.progressBar);
+				}
 
 				let bases: { [key: string]: string } = {};
 				for (const baseKey of baseKeys) {
