@@ -50,6 +50,8 @@ export class EdoFetchApi {
 			index = EdoIndex.init(stage); // init empty index with stage name
 		}
 
+		// TODO: Maybe I should use validate fingerprint if INDEX exists...
+		// to be able to verify fingerprints for elements up in the map (if not in current stage)
 		// ----------------------------------------------------[===
 		process.stdout.write(`fetching index for <${stage}>    `);
 		if (files.length == 0) {
@@ -103,6 +105,8 @@ export class EdoFetchApi {
 				// do not call it when there is no base file, it might get stuck...
 				if (baseFiles.length > 0) {
 					baseKeys = await AsyncUtils.promiseAll(baseFiles.map(item => EdoFetchApi.fetchElement(config, stage, item, search, (index.elem[item] && index.elem[item][5]))), AsyncUtils.progressBar);
+				} else {
+					process.stdout.write('\n');
 				}
 
 				let bases: { [key: string]: string } = {};

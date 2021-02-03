@@ -1,0 +1,54 @@
+*============================================================                   
+*                                                                               
+* ASMINF - Provide z/OS Host or Sysplex Name                                    
+*                                                                               
+*============================================================                   
+*ASMINF   EDCXPRLG PARMWRDS=1,BASEREG=R10 XPLINK                                
+ASMINF   EDCPRLG BASEREG=R10                                                    
+         YREGS                                                                  
+         L     R9,0(R1)                R9 -> Input area                         
+                                                                                
+* -----------------------------------------------------------                   
+* Check the value of our input area, and get Sysplex/Host                       
+* as required                                                                   
+* -----------------------------------------------------------                   
+         CLC   0(7,R9),=C'SYSPLEX'     Getting sysplex?                         
+         BE    SYSPLEX                 Yes - Go get it                          
+         CLC   0(4,R9),=C'HOST'        Getting sysplex?                         
+         BE    HOST                    Yes - Go get it                          
+         LA    R3,8                    Else Bad Return Code                     
+         B     EXIT                                                             
+                                                                                
+* -----------------------------------------------------------                   
+* Get the Host Name from the SMCA Control Block                                 
+* -----------------------------------------------------------                   
+HOST     DS    0H                                                               
+         LLGT  R2,CVTPTR               R1 -> CVT                                
+         LLGT  R2,CVTSMCA-CVT(R2)      R2 -> SMCA                               
+         MVC   0(L'SMCASID,R9),SMCASID-SMCABASE(R2) SMFID                       
+         B     EXIT0                   And Exit                                 
+                                                                                
+* -----------------------------------------------------------                   
+* Get the Sysplex Name from the Extended CVT                                    
+* -----------------------------------------------------------                   
+SYSPLEX  DS    0H                                                               
+         LLGT  R2,CVTPTR               R1 -> CVT                                
+         MVC   0(L'ECVTSPLX,R9),ECVTSPLX-ECVT(R2)   Sysplex                     
+         B     EXIT0                   And Exit                                 
+                                                                                
+* -----------------------------------------------------------                   
+* Zero Return Code and Exit                                                     
+* -----------------------------------------------------------                   
+EXIT0    DS    0H                                                               
+         XR    R3,R3                   Zero Return Code                         
+EXIT     DS    0H                                                               
+         EDCEPIL                      Return to caller                          
+*        EDCXEPLG                      Return to caller                         
+                                                                                
+* -----------------------------------------------------------                   
+* Mapping Macros and DSECTs                                                     
+* -----------------------------------------------------------                   
+CVT      CVT                           Map CVT                                  
+         IHAECVT                       Map ECVT                                 
+         IEESMCA                       Map SMCA                                 
+         END                                                                    

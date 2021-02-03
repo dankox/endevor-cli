@@ -1,0 +1,6 @@
+TEST     CSECT                                                                  
+         XR  1,1                                                                
+         XR  2,2                                                                
+         BR  14                                                                 
+         BR  14                                                                 
+         END                                                                    

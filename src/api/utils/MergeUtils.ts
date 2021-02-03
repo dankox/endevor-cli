@@ -254,13 +254,10 @@ export class MergeUtils {
 // Test
 // async function test() {
 // 	let trimTrailingSpace = true;
-// 	const baseStr = (await fu.readfile(`../test/cli-test-2/.endevor/map/DEV-1-ESCM180-DXKL/remote/1281d60fc2636b8df44696aad18e05e5d72fc670`, trimTrailingSpace)).toString();
-// 	// let baseStr = (await fu.readfile(`../test/cli-test-2/.endevor/map/DEV-1-ESCM180-DXKL/remote/6be16d3aad833c0e887e13ac2b24e9ca1044dc72`, trimTrailingSpace)).toString();
-// 	const mine = (await fu.readfile(`../test/cli-test-2/.endevor/map/DEV-1-ESCM180-DXKL/remote/6be16d3aad833c0e887e13ac2b24e9ca1044dc72`, trimTrailingSpace)).toString();
-// 	// const mineStr = (await fu.readfile('../test/cli-test-2/.endevor/map/DEV-1-ESCM180-DXKL/remote/1281d60fc2636b8df44696aad18e05e5d72fc670', trimTrailingSpace)).toString();
-// 	// const mineStr = '';
-// 	const theirsStr = (await fu.readfile(`../test/cli-test-2/.endevor/map/DEV-1-ESCM180-DXKL/remote/60a7828196ffa396a4a80eff42bf9b2fd590ed6a`, trimTrailingSpace)).toString();
-// 	console.log(EdoMerge.merge3way({ base: baseStr, mine: mineStr, theirs: theirsStr }).join('\n'));
+// 	const base = await FileUtils.readFile(`./dxktst.base`, trimTrailingSpace);
+// 	const mine = await FileUtils.readFile(`./dxktst.local`, trimTrailingSpace);
+// 	const theirs = await FileUtils.readFile(`./dxktst.remote`, trimTrailingSpace);
+// 	console.log(MergeUtils.merge3bufs(base, mine, theirs).buffer.toString());
 // }
 
 // test();

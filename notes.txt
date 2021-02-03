@@ -1,0 +1,3 @@
+edo push (update)     -> implement for add/delete
+config file           -> user/pass stored in home directory ~/.edo-credentials or something like that
+block non-entry stage -> when in non-entry stage, status should show the information as this stage is READ-ONLY, commit and push should be blocked!

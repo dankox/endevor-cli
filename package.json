@@ -31,7 +31,6 @@
     "path": "^0.12.7",
     "read": "^1.0.7",
     "rimraf": "^3.0.0",
-    "ts-node": "^8.3.0",
     "typescript": "^3.6.3",
     "yargs": "^14.2.2"
   },
@@ -44,6 +43,7 @@
     "@types/read": "0.0.28",
     "@types/rimraf": "^2.0.2",
     "@types/yargs": "^13.0.2",
+    "ts-node": "^8.5.4",
     "ts-lint": "^4.5.1",
     "tslint": "^5.20.0"
   }
