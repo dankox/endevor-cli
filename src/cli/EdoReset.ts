@@ -1,7 +1,6 @@
 import yargs from "yargs";
 import { FileUtils as fu, FileUtils } from "../api/utils/FileUtils";
 import { EdoCheckoutApi } from "../api/EdoCheckoutApi";
-import { isNullOrUndefined } from "util";
 import { EdoCache } from "../api/EdoCache";
 import { HashUtils } from "../api/utils/HashUtils";
 
@@ -9,7 +8,7 @@ import { HashUtils } from "../api/utils/HashUtils";
  * Endevor checkout stage (on local)
  */
 export class EdoReset {
-	private static readonly edoResetFile : yargs.PositionalOptions = {
+	private static readonly edoResetFile: yargs.PositionalOptions = {
 		describe: 'File to reset (type/element)'
 	};
 
@@ -25,7 +24,7 @@ export class EdoReset {
 	 */
 	public static async process(argv: any) {
 		let files: string[] = [];
-		if (!isNullOrUndefined(argv.files)) files = argv.files;
+		if (argv.files != null) files = argv.files;
 		let stage = await FileUtils.readStage(true);
 
 		let lindex = await EdoCache.readIndex(stage);

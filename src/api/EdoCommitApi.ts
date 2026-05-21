@@ -1,5 +1,4 @@
 import { FileUtils } from "./utils/FileUtils";
-import { isNullOrUndefined } from "util";
 import { HashUtils } from "./utils/HashUtils";
 import { EdoCache } from "./EdoCache";
 import { IEdoIndex } from "./doc/IEdoIndex";
@@ -32,11 +31,11 @@ export class EdoCommitApi {
 			stage = index.stgn;
 		} else {
 			const sha1 = await FileUtils.readRefs(stage);
-			if (isNullOrUndefined(sha1)) {
-				throw new Error(`Stage ${stage} doesn't exist!`);
-			}
-			if (!HashUtils.isSha1(sha1)) {
-				throw new Error(`Local stage ${stage} doesn't exist! Run 'edo merge'...`);
+		if (sha1 == null) {
+			throw new Error(`Stage ${stage} doesn't exist!`);
+		}
+		if (!HashUtils.isSha1(sha1)) {
+			throw new Error(`Local stage ${stage} doesn't exist! Run 'edo merge'...`);
 			}
 			oldSha1 = sha1; // save for back reference
 			index = await EdoCache.readIndex(sha1);
@@ -54,7 +53,7 @@ export class EdoCommitApi {
 			const files = Object.keys(index.elem);
 			for (const file of files) {
 				// update fingerprints
-				if (!isNullOrUndefined(mergeIndex.elem[file])) {
+				if (mergeIndex.elem[file] != null) {
 					index.elem[file][2] = mergeIndex.elem[file][2];
 				}
 			}
@@ -95,7 +94,7 @@ export class EdoCommitApi {
 			if (isAdd) {
 				index.elem[file] = [ fileSha1, fileSha1, 'null', 'null', file ];
 			} else {
-				if (isNullOrUndefined(mergeIndex) || isNullOrUndefined(mergeIndex.elem[file])) {
+				if (mergeIndex == null || mergeIndex.elem[file] == null) {
 					index.elem[file] = [ fileSha1, tmpItem[0], tmpItem[2], tmpItem[3], file ];
 				} else {
 					index.elem[file] = [ fileSha1, tmpItem[0], mergeIndex.elem[file][2], tmpItem[3], file ];
@@ -115,7 +114,7 @@ export class EdoCommitApi {
 			if (indexSha1 != null) {
 				FileUtils.writeRefs(stage, indexSha1); // update refs
 				// if merge files were presented, deal with them
-				if (!isNullOrUndefined(mergeIndex) && conflictFiles.length == 0) {
+				if (mergeIndex != null && conflictFiles.length == 0) {
 					try {
 						await FileUtils.unlink(`${FileUtils.getEdoDir()}/${FileUtils.mergeFile}`);
 						await FileUtils.unlink(`${FileUtils.getEdoDir()}/${FileUtils.mergeConflictFile}`);

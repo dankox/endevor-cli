@@ -1,5 +1,4 @@
 import { FileUtils } from "./utils/FileUtils";
-import { isNullOrUndefined } from "util";
 import { HashUtils } from "./utils/HashUtils";
 import * as jsdiff from "diff";
 import { IEdoIndex } from "./doc/IEdoIndex";
@@ -90,35 +89,35 @@ export class EdoDiffApi {
 			stage = index.stgn;
 		} else {
 			const sha1 = await FileUtils.readRefs(stage);
-			if (isNullOrUndefined(sha1)) {
+			if (sha1 == null) {
 				throw new Error(`Stage ${stage} doesn't exist!`);
 			}
 			index = await EdoCache.readIndex(sha1);
 		}
 
 		// diff index with working directory
-		let diffs: {[key: string]: string[]} = {};
+		let diffs: { [key: string]: string[] } = {};
 		const typeDirs: string[] = Object.keys(await EdoCache.readTypes(index.type));
 		const wdFiles: string[] = await FileUtils.listRepoDirs(typeDirs);
 		const uniqKeys = [...new Set([...Object.keys(index.elem), ...wdFiles])];
 
 		for (const key of uniqKeys) {
 			if (wdFiles.indexOf(key) == -1) {
-				diffs[key] = [ 'null', index.elem[key][0] ];
+				diffs[key] = ['null', index.elem[key][0]];
 				continue;
 			}
-			if (isNullOrUndefined(index.elem[key])) {
-				diffs[key] = [ 'file', 'null' ];
+			if (index.elem[key] == null) {
+				diffs[key] = ['file', 'null'];
 				continue;
 			}
 			const fsha1 = await HashUtils.getEdoFileHash(FileUtils.cwdEdo + key);
 			if (base) {
 				if (index.elem[key][1] != fsha1) {
-					diffs[key] = [ 'file', index.elem[key][1] ];
+					diffs[key] = ['file', index.elem[key][1]];
 				}
 			} else {
 				if (index.elem[key][0] != fsha1) {
-					diffs[key] = [ 'file', index.elem[key][0] ];
+					diffs[key] = ['file', index.elem[key][0]];
 				}
 			}
 		}
@@ -144,10 +143,10 @@ export class EdoDiffApi {
 	 * }
 	 * ```
 	 */
-	public static getIndexDiff(newIndex: IEdoIndex, oldIndex?: IEdoIndex, base: boolean = false): {[key: string]: string[]} {
+	public static getIndexDiff(newIndex: IEdoIndex, oldIndex?: IEdoIndex, base: boolean = false): { [key: string]: string[] } {
 		let uniqKeys: string[] = [];
 		let diffBase: boolean = false;
-		if (isNullOrUndefined(oldIndex)) {
+		if (oldIndex == null) {
 			oldIndex = newIndex; // just fake
 			uniqKeys = Object.keys(newIndex.elem);
 			diffBase = true;
@@ -155,29 +154,29 @@ export class EdoDiffApi {
 			uniqKeys = [...new Set([...Object.keys(newIndex.elem), ...Object.keys(oldIndex.elem)])];
 		}
 
-		let diffs: {[key: string]: string[]} = {};
+		let diffs: { [key: string]: string[] } = {};
 		for (const key of uniqKeys) {
-			if (isNullOrUndefined(oldIndex.elem[key])) {
-				diffs[key] = [ newIndex.elem[key][0], 'null' ];
+			if (oldIndex.elem[key] == null) {
+				diffs[key] = [newIndex.elem[key][0], 'null'];
 				continue;
 			}
-			if (isNullOrUndefined(newIndex.elem[key])) {
-				diffs[key] = [ 'null', oldIndex.elem[key][0] ];
+			if (newIndex.elem[key] == null) {
+				diffs[key] = ['null', oldIndex.elem[key][0]];
 				continue;
 			}
 			// for diff inside of index (lsha1 vs. rsha1)
 			if (diffBase) {
 				if (newIndex.elem[key][0] != newIndex.elem[key][1]) {
-					diffs[key] = [ newIndex.elem[key][0], newIndex.elem[key][1] ];
+					diffs[key] = [newIndex.elem[key][0], newIndex.elem[key][1]];
 				}
 			} else {
 				if (base) {
 					if (newIndex.elem[key][0] != oldIndex.elem[key][1]) {
-						diffs[key] = [ newIndex.elem[key][0], oldIndex.elem[key][1] ];
+						diffs[key] = [newIndex.elem[key][0], oldIndex.elem[key][1]];
 					}
 				} else {
 					if (newIndex.elem[key][0] != oldIndex.elem[key][0]) {
-						diffs[key] = [ newIndex.elem[key][0], oldIndex.elem[key][0] ];
+						diffs[key] = [newIndex.elem[key][0], oldIndex.elem[key][0]];
 					}
 				}
 			}
@@ -200,10 +199,10 @@ export class EdoDiffApi {
 
 		let diffs: string[] = [];
 		for (const key of uniqKeys) {
-			if (isNullOrUndefined(remoteIndex.elem[key])) {
+			if (remoteIndex.elem[key] == null) {
 				continue;
 			}
-			if (isNullOrUndefined(localIndex.elem[key])) {
+			if (localIndex.elem[key] == null) {
 				continue;
 			}
 			if (localIndex.elem[key][2] != remoteIndex.elem[key][2]) {

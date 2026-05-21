@@ -1,5 +1,4 @@
 import { FileUtils } from "./utils/FileUtils";
-import { isNullOrUndefined } from "util";
 import { HashUtils } from "./utils/HashUtils";
 import { EdoCache } from "./EdoCache";
 import { IEdoIndex } from "./doc/IEdoIndex";
@@ -36,7 +35,7 @@ export class EdoPushApi {
 			stage = index.stgn;
 		} else {
 			const sha1 = await FileUtils.readRefs(stage);
-			if (isNullOrUndefined(sha1)) {
+			if (sha1 == null) {
 				throw new Error(`Stage ${stage} doesn't exist!`);
 			}
 			if (!HashUtils.isSha1(sha1)) {
@@ -46,7 +45,7 @@ export class EdoPushApi {
 		}
 		// get remote index
 		const rIdxSha1 = await FileUtils.readRefs(stage, true);
-		if (isNullOrUndefined(rIdxSha1) || !HashUtils.isSha1(rIdxSha1)) {
+		if (rIdxSha1 == null || !HashUtils.isSha1(rIdxSha1)) {
 			throw new Error(`Remote stage doesn't exist! Run 'edo fetch'...`);
 		}
 		remoteIndex = await EdoCache.readIndex(rIdxSha1);
@@ -93,8 +92,8 @@ export class EdoPushApi {
 
 			let updateIndex: boolean = false;
 			for (const key of pushedKeys) {
-				if (isNullOrUndefined(key)) continue;
-				if (isNullOrUndefined(remoteIndex.elem[key.file])) continue; // TODO: remove when add new file implemented
+				if (key == null) continue;
+				if (remoteIndex.elem[key.file] == null) continue; // TODO: remove when add new file implemented
 				remoteIndex.elem[key.file][0] = index.elem[key.file][0]; // update lsha1 in remote
 				remoteIndex.elem[key.file][2] = key.fingerprint; // update fingerprint in remote
 				index.elem[key.file][2] = key.fingerprint;       // and local index
@@ -141,7 +140,7 @@ export class EdoPushApi {
 
 			let jsonBody;
 			// check if error, or not found
-			if (!isNullOrUndefined(response.status) && response.status != 200 ) {
+			if (response.status != null && response.status != 200) {
 				try {
 					// parse body, there will be messages
 					jsonBody = JSON.parse(response.body);

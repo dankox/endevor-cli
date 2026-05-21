@@ -1,6 +1,5 @@
 import * as diff from "diff";
 // import { IMerge3way } from "../doc/IMerge3way";
-import { isNullOrUndefined } from "util";
 import { FileUtils } from "./FileUtils";
 import { IEdoIndex } from "../doc/IEdoIndex";
 import { EdoCache } from "../EdoCache";
@@ -67,7 +66,7 @@ export class MergeUtils {
 		let merged: string[] = MergeUtils.merge3way(mergearg);
 		let isOk = merged.shift();
 		// it's just safe check, shouldn't happen
-		if (isNullOrUndefined(isOk)) isOk = MergeUtils.STATUS_CONFLICT;
+		if (isOk == null) isOk = MergeUtils.STATUS_CONFLICT;
 
 		// TODO: check the line endings, last line is not merged properly (last empty line)
 		let tmpBuf: Buffer = Buffer.from(merged.join('\n'));
@@ -115,7 +114,7 @@ export class MergeUtils {
 		parse.hunks.forEach((hunk: any) => {
 			conflict = false;
 			// handle beginnig of the hunk
-			if (!isNullOrUndefined(hunk.oldStart)) {
+			if (hunk.oldStart != null) {
 				// copy lines infront of the hunk if required
 				if (hunk.oldStart > baseIdx) {
 					for (let i = baseIdx; i < hunk.oldStart; i++) {
@@ -123,7 +122,7 @@ export class MergeUtils {
 					}
 				}
 				// move base index
-				if (!isNullOrUndefined(hunk.oldLines)) {
+				if (hunk.oldLines != null) {
 					baseIdx = hunk.oldStart + hunk.oldLines;
 				}
 			}

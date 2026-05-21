@@ -1,7 +1,6 @@
 import yargs from "yargs";
 import { FileUtils as fu, FileUtils } from "../api/utils/FileUtils";
 import { EdoCheckoutApi } from "../api/EdoCheckoutApi";
-import { isNullOrUndefined } from "util";
 import { EdoCache } from "../api/EdoCache";
 import { HashUtils } from "../api/utils/HashUtils";
 
@@ -9,7 +8,7 @@ import { HashUtils } from "../api/utils/HashUtils";
  * Endevor checkout stage (on local)
  */
 export class EdoDiscard {
-	private static readonly edoDiscardFile : yargs.PositionalOptions = {
+	private static readonly edoDiscardFile: yargs.PositionalOptions = {
 		describe: 'File to discard (type/element)'
 	};
 
@@ -25,7 +24,7 @@ export class EdoDiscard {
 	 */
 	public static async process(argv: any) {
 		let files: string[] = [];
-		if (!isNullOrUndefined(argv.files)) files = argv.files;
+		if (argv.files != null) files = argv.files;
 		let stage = await FileUtils.readStage();
 		if (!HashUtils.isSha1(stage)) {
 			console.log("There is no index for this stage, run 'edo fetch' and 'edo merge', or just run 'edo pull'");

@@ -1,6 +1,5 @@
 import yargs from "yargs";
 import { FileUtils } from "../api/utils/FileUtils";
-import { isNullOrUndefined } from "util";
 import { EdoDiffApi } from "../api/EdoDiffApi";
 import { EdoCache } from "../api/EdoCache";
 import { HashUtils } from "../api/utils/HashUtils";
@@ -89,9 +88,9 @@ export class EdoDiff {
 		}
 
 		// setup options
-		let base: boolean = !isNullOrUndefined(argv.base) ? argv.base : false;
-		let nameOnly: boolean = !isNullOrUndefined(argv["name-only"]) ? argv["name-only"] : false;
-		let ignoreSpace: boolean = !isNullOrUndefined(argv["ignore-space"]) ? argv["ignore-space"] : false;
+		let base: boolean = argv.base != null ? argv.base : false;
+		let nameOnly: boolean = argv["name-only"] != null ? argv["name-only"] : false;
+		let ignoreSpace: boolean = argv["ignore-space"] != null ? argv["ignore-space"] : false;
 
 		try {
 			let changes: {[key: string]: string[]};
@@ -122,7 +121,7 @@ export class EdoDiff {
 			let hasChanges: boolean = false;
 
 			for (const key of changedFiles) {
-				if (!isNullOrUndefined(files) && files.length > 0 && files.indexOf(key) < 0) continue;
+				if (files != null && files.length > 0 && files.indexOf(key) < 0) continue;
 
 				if (nameOnly) {
 					if (changes[key][0] == 'null') {

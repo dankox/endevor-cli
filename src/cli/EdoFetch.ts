@@ -5,33 +5,32 @@ import { CsvUtils } from "../api/utils/CsvUtils";
 import { EdoFetchApi } from "../api/EdoFetchApi";
 import { EdoCache } from "../api/EdoCache";
 import { HashUtils } from "../api/utils/HashUtils";
-import { isNullOrUndefined } from "util";
 import { ConsoleUtils } from "../api/utils/ConsoleUtils";
 
 /**
  * Edo fetch remote stage to local
  */
 export class EdoFetch {
-	private static readonly edoFetchAllOption : yargs.Options = {
+	private static readonly edoFetchAllOption: yargs.Options = {
 		describe: 'Fetch all elements from the map',
 		demand: false,
 		boolean: true,
 		alias: 'a'
 	};
 
-	private static readonly edoFetchLogsOption : yargs.Options = {
+	private static readonly edoFetchLogsOption: yargs.Options = {
 		describe: 'Fetch logs/history for elements',
 		demand: false,
 		boolean: true,
 		alias: 'l'
 	};
 
-	private static readonly edoFetchStage : yargs.PositionalOptions = {
+	private static readonly edoFetchStage: yargs.PositionalOptions = {
 		describe: 'Name or sha1 id of remote stage which you want to fetch',
 		type: "string"
 	};
 
-	private static readonly edoFetchFile : yargs.PositionalOptions = {
+	private static readonly edoFetchFile: yargs.PositionalOptions = {
 		describe: 'Name of file to fetch from remote Endevor. Format of files `typeName/eleName`',
 		type: "string"
 	};
@@ -69,7 +68,7 @@ export class EdoFetch {
 			if (!HashUtils.isSha1(argv.stage)) {
 				if (!argv.stage.startsWith('.map') && !argv.stage.match(/.+-.+-.+-.+/)) {
 					if (!argv.files || argv.files.legnth == 0) {
-						argv.files = [ argv.stage ];
+						argv.files = [argv.stage];
 					} else {
 						argv.files.unshift(argv.stage);
 					}
@@ -81,9 +80,9 @@ export class EdoFetch {
 		// pick stage if specified, or load
 		let stage = argv.stage || await FileUtils.readStage();
 		let files: string[] = argv['files'] ? argv['files'] : [];
-		const all = !isNullOrUndefined(argv.all) ? argv.all : false;
-		const logs = !isNullOrUndefined(argv.logs) ? argv.logs : false;
-		const type =  logs ? EdoCache.OBJ_LOGS : EdoCache.OBJ_BLOB;
+		const all = argv.all != null ? argv.all : false;
+		const logs = argv.logs != null ? argv.logs : false;
+		const type = logs ? EdoCache.OBJ_LOGS : EdoCache.OBJ_BLOB;
 
 		try {
 			// for option to fetch for all stages in map

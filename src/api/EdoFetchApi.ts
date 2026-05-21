@@ -1,7 +1,6 @@
 import { FileUtils } from "./utils/FileUtils";
 import { ISettings } from "./doc/ISettings";
 import { EndevorRestApi } from "./utils/EndevorRestApi";
-import { isNullOrUndefined } from "util";
 import { IRestResponse } from "./doc/IRestResponse";
 import { IEleList } from "./doc/IEleList";
 import { CsvUtils } from "./utils/CsvUtils";
@@ -115,12 +114,12 @@ export class EdoFetchApi {
 						delete index.elem[fetchKey[4]]; // remove from index (deleted in remote)
 						continue;
 					}
-					if (!isNullOrUndefined(index.elem[fetchKey[4]])) {
+					if (index.elem[fetchKey[4]] != null) {
 						// for existing index key, save 3rd field (hsha1)
 						fetchKey[3] = index.elem[fetchKey[4]][3];
 					}
 					// for fetched base, use it as remote/base sha1 in index
-					if (!isNullOrUndefined(bases[fetchKey[4]])) {
+					if (bases[fetchKey[4]] != null) {
 						fetchKey[1] = bases[fetchKey[4]];
 					}
 					index.elem[fetchKey[4]] = fetchKey;
@@ -151,7 +150,7 @@ export class EdoFetchApi {
 					if (fetchKey[3] == 'del') {
 						fetchKey[3] = 'null'; // set to null for update
 					}
-					if (!isNullOrUndefined(index.elem[fetchKey[4]])) {
+					if (index.elem[fetchKey[4]] != null) {
 						// for existing index key, save 3rd field (hsha1)
 						index.elem[fetchKey[4]][3] = fetchKey[3];
 					} else {
@@ -213,7 +212,7 @@ export class EdoFetchApi {
 			updated = true;
 		}
 
-		if (!isNullOrUndefined(eleList)) {
+		if (eleList != null) {
 			eleList.forEach((ele: IEleList) => {
 				const key = `${ele.typeName}${FileUtils.separator}${ele.fullElmName}`;
 				if (filterFiles.length > 0 && filterFiles.indexOf(key) == -1) return; // skip if not in filter (when it is passed)
@@ -228,7 +227,7 @@ export class EdoFetchApi {
 					baseVVLL = 'null';
 				}
 
-				if (!isNullOrUndefined(index.elem[key])) {
+				if (index.elem[key] != null) {
 					// TODO: if we have fingerprint list, the fingerprint field should contain sha1 for fingerprint list
 					let tmpItem = index.elem[key]; // lsha1,rsha1,fingerprint,hsha1,typeName/fullElmName (new version)
 					if (tmpItem[2] != ele.fingerprint) {
@@ -274,12 +273,12 @@ export class EdoFetchApi {
 			} catch (err) {
 				throw new Error("element json parsing error: " + err);
 			}
-			if (!isNullOrUndefined(response.status) && response.status > 300 ) {
-				throw new Error(`Error obtaining element list for stage '${stage}':\n${resBody.messages}`);
-			}
-			let result = resBody.data;
-			if (!isNullOrUndefined(result)) {
-				if (isNullOrUndefined(result[0])) {
+		if (response.status != null && response.status > 300 ) {
+			throw new Error(`Error obtaining element list for stage '${stage}':\n${resBody.messages}`);
+		}
+		let result = resBody.data;
+		if (result != null) {
+			if (result[0] == null) {
 					result = [];
 					result[0] = resBody.data;
 				}
@@ -301,13 +300,13 @@ export class EdoFetchApi {
 	 * @returns array `[ sha1, sha1, fingerprint, null, element ]`, if not found or error `[ null, null, null, null, element ]`
 	 */
 	public static async fetchElement(config: ISettings, stage: string, element: string, search: boolean = false, vvll?: string): Promise<string[]> {
-		if (!isNullOrUndefined(vvll) && vvll == 'null') return [ 'null', 'null', 'null', 'null', element ]; // don't fetch if vvll=null (we don't want that)
+		if (vvll != null && vvll == 'null') return [ 'null', 'null', 'null', 'null', element ]; // don't fetch if vvll=null (we don't want that)
 		let stageParts = stage.split('-');
 		let elemParts = CsvUtils.splitX(element, FileUtils.separator, 1);
 		let binHead = EndevorRestApi.getBinaryHeader(config);
 		let eleURL = `env/${stageParts[0]}/stgnum/${stageParts[1]}/sys/${stageParts[2]}/subsys/${stageParts[3]}/`
 			+ `type/${encodeURIComponent(elemParts[0])}/ele/${encodeURIComponent(elemParts[1])}?noSignout=yes`;
-		if (!isNullOrUndefined(vvll)) eleURL += `&version=${vvll.substr(0, 2)}&level=${vvll.substr(2)}`;
+		if (vvll != null) eleURL += `&version=${vvll.substr(0, 2)}&level=${vvll.substr(2)}`;
 		if (search)	eleURL += "&search=yes";
 
 		try {
@@ -315,17 +314,17 @@ export class EdoFetchApi {
 
 			let jsonBody;
 			// check if error, or not found
-			if (!isNullOrUndefined(response.status) && response.status != 200 ) {
-				try {
-					// parse body, there will be messages
-					jsonBody = JSON.parse(response.body);
-				} catch (err) {
-					console.error("json parsing error: " + err);
-					return [ 'null', 'null', 'null', 'null', element ];
-				}
-				if (response.status != 206) {
-					console.error(`Error obtaining element from url '${eleURL}':\n${jsonBody.messages}`);
-				} else {
+		if (response.status != null && response.status != 200 ) {
+			try {
+				// parse body, there will be messages
+				jsonBody = JSON.parse(response.body);
+			} catch (err) {
+				console.error("json parsing error: " + err);
+				return [ 'null', 'null', 'null', 'null', element ];
+			}
+			if (response.status != 206) {
+				console.error(`Error obtaining element from url '${eleURL}':\n${jsonBody.messages}`);
+			} else {
 					// console.warn(`Element '${element}' deleted from stage '${stage}'...`);
 					return [ 'del', 'null', 'null', 'null', element ];
 				}
@@ -363,17 +362,17 @@ export class EdoFetchApi {
 
 			let jsonBody;
 			// check if error, or not found
-			if (!isNullOrUndefined(response.status) && response.status != 200 ) {
-				try {
-					// parse body, there will be messages
-					jsonBody = JSON.parse(response.body);
-				} catch (err) {
-					console.error("json parsing error: " + err);
-					return [ 'null', 'null', 'null', 'null', element ];
-				}
-				if (response.status != 206) {
-					console.error(`Error obtaining element history from url '${eleURL}':\n${jsonBody.messages}`);
-				} else {
+		if (response.status != null && response.status != 200 ) {
+			try {
+				// parse body, there will be messages
+				jsonBody = JSON.parse(response.body);
+			} catch (err) {
+				console.error("json parsing error: " + err);
+				return [ 'null', 'null', 'null', 'null', element ];
+			}
+			if (response.status != 206) {
+				console.error(`Error obtaining element history from url '${eleURL}':\n${jsonBody.messages}`);
+			} else {
 					// console.warn(`Element '${element}' deleted from stage '${stage}'...`);
 					return [ 'null', 'null', 'null', 'del', element ];
 				}
@@ -410,12 +409,12 @@ export class EdoFetchApi {
 		} catch (err) {
 			throw new Error("type json parsing error: " + err);
 		}
-		if (!isNullOrUndefined(response.status) && response.status > 300 ) {
+		if (response.status != null && response.status > 300 ) {
 			throw new Error(`Error obtaining type list for stage '${stage}':\n${resBody.messages}`);
 		}
 		let result = resBody.data;
-		if (!isNullOrUndefined(result)) {
-			if (isNullOrUndefined(result[0])) {
+		if (result != null) {
+			if (result[0] == null) {
 				result = [];
 				result[0] = resBody.data;
 			}

@@ -1,5 +1,4 @@
 import yargs from 'yargs';
-import { isNullOrUndefined } from 'util';
 import { FileUtils } from '../api/utils/FileUtils';
 import { EdoMergeApi } from '../api/EdoMergeApi';
 import { HashUtils } from '../api/utils/HashUtils';
@@ -47,7 +46,7 @@ export class EdoMerge {
 			let stage: string = await FileUtils.readStage();
 			let remoteStage: string = argv.stage; // if undefined, merge will pick remote for this local stage
 
-			let files: string[] = (isNullOrUndefined(argv.files) ? [] : argv.files);
+			let files: string[] = (argv.files == null ? [] : argv.files);
 
 			await EdoMergeApi.merge(stage, remoteStage, files);
 		} catch (err) {

@@ -1,7 +1,6 @@
 import yargs from 'yargs';
 import { FileUtils } from '../api/utils/FileUtils';
 import { EdoCommitApi } from '../api/EdoCommitApi';
-import { isNullOrUndefined } from 'util';
 
 /**
  * Edo commit changes in working directory to local stage
@@ -31,8 +30,8 @@ export class EdoCommit {
 	public static async process(argv: any) {
 		try {
 			let stage: string = await FileUtils.readStage();
-			let files: string[] = (isNullOrUndefined(argv.files) ? [] : argv.files);
-			const all: boolean = (isNullOrUndefined(argv.all) ? false : argv.all);
+			let files: string[] = (argv.files == null ? [] : argv.files);
+			const all: boolean = (argv.all == null ? false : argv.all);
 
 			await EdoCommitApi.commit(stage, files, all);
 		} catch (err) {

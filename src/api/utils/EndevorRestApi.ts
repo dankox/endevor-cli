@@ -4,7 +4,6 @@ import http from "http";
 import https from "https";
 import * as zlib from "zlib";
 import { IRestResponse } from "../doc/IRestResponse";
-import { isNullOrUndefined } from "util";
 import { ISettings } from "../doc/ISettings";
 
 /**
@@ -135,7 +134,7 @@ export class EndevorRestApi {
 	 */
 	public static httpRequest(url: string, options: http.RequestOptions | https.RequestOptions, resolve: any, reject: any): http.ClientRequest {
 		let headers = options.headers;
-		if (isNullOrUndefined(headers)) {
+		if (headers == null) {
 			headers = { "Accept": "application/json" };
 		}
 		const tUrl = nodeurl.parse(url);

@@ -4,7 +4,6 @@ import { EdoCache } from '../api/EdoCache';
 import { ISettings } from '../api/doc/ISettings';
 import { EdoFetchApi } from '../api/EdoFetchApi';
 import { EdoMergeApi } from '../api/EdoMergeApi';
-import { isNullOrUndefined } from 'util';
 import { HashUtils } from '../api/utils/HashUtils';
 import { CsvUtils } from '../api/utils/CsvUtils';
 import { ConsoleUtils } from '../api/utils/ConsoleUtils';
@@ -13,12 +12,12 @@ import { ConsoleUtils } from '../api/utils/ConsoleUtils';
  * Edo pull, meaning do fetch and merge together
  */
 export class EdoPull {
-	private static readonly edoPullFile : yargs.PositionalOptions = {
+	private static readonly edoPullFile: yargs.PositionalOptions = {
 		describe: 'Name of files (element.type) to pull from remote repo',
 		type: "string"
 	};
 
-	private static readonly edoPullStage : yargs.PositionalOptions = {
+	private static readonly edoPullStage: yargs.PositionalOptions = {
 		describe: 'Name of stage to pull elements from',
 		type: "string"
 	};
@@ -56,7 +55,7 @@ export class EdoPull {
 			if (!HashUtils.isSha1(argv.stage)) {
 				if (!argv.stage.startsWith('.map') && !argv.stage.match(/.+-.+-.+-.+/)) {
 					if (!argv.files || argv.files.legnth == 0) {
-						argv.files = [ argv.stage ];
+						argv.files = [argv.stage];
 					} else {
 						argv.files.unshift(argv.stage);
 					}
@@ -67,7 +66,7 @@ export class EdoPull {
 
 		// pick stage if specified, or load
 		let stage = argv.stage || await FileUtils.readStage();
-		let files: string[] = (isNullOrUndefined(argv.files) ? [] : argv.files);
+		let files: string[] = (argv.files == null ? [] : argv.files);
 
 		try {
 			if (files.length > 0) {

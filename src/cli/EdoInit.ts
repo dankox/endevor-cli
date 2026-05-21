@@ -2,7 +2,6 @@ import yargs from 'yargs';
 import { EdoInitApi } from "../api/EdoInitApi";
 import { EndevorRestApi } from '../api/utils/EndevorRestApi';
 import { ConsoleUtils } from '../api/utils/ConsoleUtils';
-import { isNullOrUndefined } from 'util';
 
 /**
  * Endevor initialize local repo from remote URL
@@ -12,17 +11,17 @@ import { isNullOrUndefined } from 'util';
  */
 export class EdoInit {
 
-	private static readonly edoInitUrlOptions : yargs.PositionalOptions = {
+	private static readonly edoInitUrlOptions: yargs.PositionalOptions = {
 		describe: 'Full remote URL of Endevor repo\n(e.g. http://localhost:8080/EndevorService/rest/CONFIG)'
 	};
 
-	private static readonly edoInitUserOptions : yargs.Options = {
+	private static readonly edoInitUserOptions: yargs.Options = {
 		describe: 'Username',
 		demand: false,
 		alias: 'u'
 	};
 
-	private static readonly edoInitPassOptions : yargs.Options = {
+	private static readonly edoInitPassOptions: yargs.Options = {
 		describe: 'Password',
 		demand: false,
 		alias: 'p'
@@ -53,11 +52,11 @@ export class EdoInit {
 		let user = argv.user;
 		let password = argv.pass;
 		// validate URL
-		if (isNullOrUndefined(repoURL)) {
+		if (repoURL == null) {
 			console.error("Repo URL is not specified!");
 			process.exit(1);
 		}
-		if (repoURL.slice(-1) !== "/"){
+		if (repoURL.slice(-1) !== "/") {
 			repoURL = repoURL + "/";
 		}
 

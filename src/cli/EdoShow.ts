@@ -1,6 +1,5 @@
 import yargs from "yargs";
 import { EdoCache } from "../api/EdoCache";
-import { isNullOrUndefined } from "util";
 import { IEdoIndex } from "../api/doc/IEdoIndex";
 import { FileUtils } from "../api/utils/FileUtils";
 import { HashUtils } from "../api/utils/HashUtils";
@@ -10,7 +9,7 @@ import { CsvUtils } from "../api/utils/CsvUtils";
  * Endevor fetch remote stage to local
  */
 export class EdoShow {
-	private static readonly edoShowFullLog : yargs.Options = {
+	private static readonly edoShowFullLog: yargs.Options = {
 		describe: `Show full log details of specified file in remote stage, or show content of specified change.
 Full log means that edo will try to concatenate all the logs which are in the map to provide comprehensive log for specified file.
 If log is not fetched or doesn't exist in some stages in map, it will be skipped. It's good to run 'edo fetch -l -a' first before using this.
@@ -21,7 +20,7 @@ Syntax is similar to logs.`,
 		alias: 'fl'
 	};
 
-	private static readonly edoShowLogs : yargs.Options = {
+	private static readonly edoShowLogs: yargs.Options = {
 		describe: `Show log details of specified file in remote stage, or show content of specified change.
 To show log details, specify object with stage only (remote/STAGE:typeName/eleName).
 To show content of log, specify object with stage and back reference (remote/STAGE~0102:typeName/eleName)`,
@@ -31,14 +30,14 @@ To show content of log, specify object with stage and back reference (remote/STA
 		alias: 'l'
 	};
 
-	private static readonly edoShowBlame : yargs.Options = {
+	private static readonly edoShowBlame: yargs.Options = {
 		describe: `Show blame for specified file in remote stage. Similar syntax to logs.`,
 		boolean: true,
 		demand: false,
 		alias: 'b'
 	};
 
-	private static readonly edoShowObject : yargs.PositionalOptions = {
+	private static readonly edoShowObject: yargs.PositionalOptions = {
 		describe: 'sha1 or reference to object in edo database e.g.: STAGE~1:typeName/eleName, DEV-1-ESCM180-DXKL~5:typeName/eleName',
 		type: "string"
 	};
@@ -58,27 +57,27 @@ To show content of log, specify object with stage and back reference (remote/STA
 	 */
 	public static async process(argv: any) {
 		const object: string = argv.object;
-		if (isNullOrUndefined(object)) {
+		if (object == null) {
 			console.error("No object specified!");
 			return 1;
 		}
 
-		const logs: boolean = !isNullOrUndefined(argv.logs) ? argv.logs : false;
-		const blame: boolean = !isNullOrUndefined(argv.blame) ? argv.blame : false;
-		const fullLogs: boolean = !isNullOrUndefined(argv.fullLogs) ? argv.fullLogs : false;
+		const logs: boolean = argv.logs != null ? argv.logs : false;
+		const blame: boolean = argv.blame != null ? argv.blame : false;
+		const fullLogs: boolean = argv.fullLogs != null ? argv.fullLogs : false;
 		let hasfile: boolean = true;
 
 		// STAGE~1:typeName/eleName
 		let refs = object.match(/^([^\:~]+)(~([^\:]+))*(:(.+))*$/);
-		if (isNullOrUndefined(refs)) {
+		if (refs == null) {
 			console.error(`Invalid object name ${object}`);
 			process.exit(1);
 			return;
 		}
-		if (isNullOrUndefined(refs[2])) {
+		if (refs[2] == null) {
 			refs[3] = "0";
 		}
-		if (isNullOrUndefined(refs[4])) {
+		if (refs[4] == null) {
 			hasfile = false;
 		}
 
@@ -120,15 +119,15 @@ To show content of log, specify object with stage and back reference (remote/STA
 				if (fullLogs) {
 					// grab map and build logs details from it
 					let map = (await CsvUtils.getMapArray(index.stgn)).reverse();
-					let logsOut: { [key: string]: string[]} = {};
-					let vvllStage: { [key: string]: string} = {}; // object to track what is the last vvll in current stage
+					let logsOut: { [key: string]: string[] } = {};
+					let vvllStage: { [key: string]: string } = {}; // object to track what is the last vvll in current stage
 					let logsMissing: boolean = true;
 					let fileNotInRemote: boolean = false;
 					for (const stage of map) {
 						try {
 							const stageLogs = await EdoCache.getLogs(`remote/${stage}`, file);
 							for (const vvll of Object.keys(stageLogs)) {
-								if (isNullOrUndefined(logsOut[vvll])) {
+								if (logsOut[vvll] == null) {
 									logsOut[vvll] = [stage, stageLogs[vvll].join(' ')];
 								}
 								vvllStage[stage] = vvll; // set vvll for stage (to get last one)
@@ -163,7 +162,7 @@ To show content of log, specify object with stage and back reference (remote/STA
 						process.stdout.write(logs);
 						process.exit(0);
 
-					// if no version, do logs or blame
+						// if no version, do logs or blame
 					} else {
 
 						// if no blame (so only fulllogs without version)
@@ -173,14 +172,14 @@ To show content of log, specify object with stage and back reference (remote/STA
 							}
 							return;
 
-						// do blame with fullLogs
+							// do blame with fullLogs
 						} else {
 							let finalOutput: Buffer | null = null;
 							let lastVVLL: string | null = null;
 							for (const stage of map) {
-								if (!isNullOrUndefined(vvllStage[stage])) {
+								if (vvllStage[stage] != null) {
 									// const out = (await EdoCache.getLogsContent(`remote/${stage}`, file, vvllStage[stage], true)).toString(); //.split('\n');
-									if (finalOutput != null && !isNullOrUndefined(lastVVLL)) {
+									if (finalOutput != null && lastVVLL != null) {
 										// console.log(`running for other stage ${stage}`);
 										const index = await EdoCache.readIndex(`remote/${stage}`);
 										const buf: Buffer = await EdoCache.getSha1Object(index.elem[file][3], EdoCache.OBJ_LOGS);
@@ -228,7 +227,7 @@ To show content of log, specify object with stage and back reference (remote/STA
 						}
 					}
 
-				// for logs only or blame without fulllogs
+					// for logs only or blame without fulllogs
 				} else {
 					// if version specified get full file content of that version (only for logs)
 					if (refs[3].length >= 3) {
@@ -237,7 +236,7 @@ To show content of log, specify object with stage and back reference (remote/STA
 						process.stdout.write(logs);
 						process.exit(0);
 
-					// if no version, do logs or blame
+						// if no version, do logs or blame
 					} else {
 						const logsOut = await EdoCache.getLogs(stage, file);
 
@@ -247,7 +246,7 @@ To show content of log, specify object with stage and back reference (remote/STA
 								console.log(line.join(' '));
 							}
 
-						// for blame
+							// for blame
 						} else {
 							const vvll = Object.keys(logsOut).pop();
 							if (vvll) {
@@ -267,23 +266,23 @@ To show content of log, specify object with stage and back reference (remote/STA
 					}
 				}
 
-			// handle generic objects (index, files)
+				// handle generic objects (index, files)
 			} else {
 				const index: IEdoIndex = await EdoCache.getIndex(stage, backref);
 				// for files
 				if (hasfile) {
-					if (isNullOrUndefined(index.elem[file])) {
+					if (index.elem[file] == null) {
 						console.error(`File '${file}' doesn't exist in ${refs[1]}${refs[2]}!`);
 						process.exit(1);
 					}
-						let fileSha1 = index.elem[file][0];
+					let fileSha1 = index.elem[file][0];
 					if (index.prev == 'base') {
 						fileSha1 = index.elem[file][1];
 					}
 					const out: Buffer = await EdoCache.getSha1Object(fileSha1, EdoCache.OBJ_BLOB);
 					process.stdout.write(out);
 
-				// no file, so display index
+					// no file, so display index
 				} else {
 					console.log(`stage ${index.stgn}`);
 					for (const item of Object.values(index.elem)) {

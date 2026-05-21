@@ -1,5 +1,4 @@
 import { IObject, FileUtils } from './utils/FileUtils';
-import { isNullOrUndefined } from 'util';
 import { IEdoIndex } from './doc/IEdoIndex';
 import { HashUtils } from './utils/HashUtils';
 import { CsvUtils } from './utils/CsvUtils';
@@ -27,7 +26,7 @@ export class EdoCache {
 	 * @returns sha1 of stored index or null if index is null
 	 */
 	public static async writeIndex(index: IEdoIndex): Promise<string | null> {
-		if (isNullOrUndefined(index)) return null;
+		if (index == null) return null;
 
 		let output: string[] = [];
 		output.push(`prev ${index.prev}`); // TODO: autoupdate according to current stage
@@ -40,7 +39,7 @@ export class EdoCache {
 		// if (!await FileUtils.exists(".ele")) {
 		// 	await FileUtils.mkdir(".ele"); // create directory (just in case)
 		// }
-		if (!isNullOrUndefined(index.elem)) {
+		if (index.elem != null) {
 			let eles: string[] = Object.keys(index.elem);
 			eles.forEach((eleKey: string) => {
 				// lsha1,rsha1,fingerprint,hsha1,typeName-fullElmName (new version)
@@ -65,7 +64,7 @@ export class EdoCache {
 		// TODO: search for stage sha1, update all calls to this function for readability improvement
 		if (!HashUtils.isSha1(stage)) {
 			const sha1 = await FileUtils.readRefs(stage);
-			if (isNullOrUndefined(sha1)) {
+			if (sha1 == null) {
 				throw new Error(`Stage ${stage} doesn't have index!`);
 			}
 			stage = sha1;
@@ -126,14 +125,14 @@ export class EdoCache {
 	 * @param sha1 id of type object
 	 * @returns indexable object, format like: `types['typeName'] = [ 'T', '80' ]`
 	 */
-	public static async readTypes(sha1: string): Promise<{[key: string]: string[]}> {
+	public static async readTypes(sha1: string): Promise<{ [key: string]: string[] }> {
 		//let types: string[] = [];
 		const types: string[] = (await EdoCache.getSha1Object(sha1, EdoCache.OBJ_TYPE)).toString().split('\n');
 		let data: { [key: string]: string[] } = {};
 		for (const line of types) {
 			const keyVal = line.match(/([^,]+),([^,]+),([^,]+)/);
 			if (keyVal != null) {
-				data[keyVal[1]] = [ keyVal[2], keyVal[3] ];
+				data[keyVal[1]] = [keyVal[2], keyVal[3]];
 			}
 		}
 		return data;
@@ -154,7 +153,7 @@ export class EdoCache {
 
 		if (!HashUtils.isSha1(stage)) {
 			const sha1 = await FileUtils.readRefs(stage);
-			if (isNullOrUndefined(sha1)) {
+			if (sha1 == null) {
 				throw new Error(`Stage ${stage} doesn't have index!`);
 			}
 			indexSha1 = sha1;
@@ -168,7 +167,7 @@ export class EdoCache {
 			if (index.prev != 'null' && (await EdoCache.sha1Exists(index.prev))) {
 				index = await EdoCache.readIndex(index.prev);
 			} else {
-				if ( (i + 1) == backref) {
+				if ((i + 1) == backref) {
 					index.prev = 'base'; // set to base in case sha1 doesn't exist (because of gc)
 					break; // if we are
 				}
@@ -185,7 +184,7 @@ export class EdoCache {
 		} catch (err) {
 			throw new Error(`Stage ${stage} doesn't have index! (run 'edo fetch ${stage}')`);
 		}
-		if (isNullOrUndefined(index.elem[file])){
+		if (index.elem[file] == null) {
 			throw new Error(`File ${file} doesn't exist in ${stage}! (run 'edo fetch ${stage} ${file}')`);
 		}
 		if (!HashUtils.isSha1(index.elem[file][3])) {
@@ -205,7 +204,7 @@ export class EdoCache {
 		} catch (err) {
 			throw new Error(`Stage ${stage} doesn't have index! (run 'edo fetch ${stage}')`);
 		}
-		if (isNullOrUndefined(index.elem[file])){
+		if (index.elem[file] == null) {
 			throw new Error(`File ${file} doesn't exist in ${stage}! (run 'edo fetch ${stage} ${file}')`);
 		}
 		if (!HashUtils.isSha1(index.elem[file][3])) {
@@ -217,24 +216,24 @@ export class EdoCache {
 		let buf: Buffer = await EdoCache.getSha1Object(index.elem[file][3], EdoCache.OBJ_LOGS);
 		let logs = EdoCache.extractLogDetails(buf);
 
-		if (!isNullOrUndefined(logs[vvll])) {
+		if (logs[vvll] != null) {
 			return EdoCache.extractLogContent(buf, vvll, details);
 		} else {
 			throw new Error(`Incorrect change specified '${vvll}'! (run 'edo show -l ${stage}:${file}' to list available changes)`);
 		}
 	}
 
-	public static extractLogDetails(logBuf: Buffer): {[key: string]: string[]} {
+	public static extractLogDetails(logBuf: Buffer): { [key: string]: string[] } {
 		let lines: string[] = logBuf.toString().split('\n');
-		let logDetails: {[key: string]: string[]} = {};
+		let logDetails: { [key: string]: string[] } = {};
 		for (let line of lines) {
-			if (line[2] == ' ' && line.slice(3,7).match(/^\d+$/)) {
+			if (line[2] == ' ' && line.slice(3, 7).match(/^\d+$/)) {
 				const vvll = line.slice(3, 7);
 				const user = line.slice(13, 21);
 				const date = line.slice(22, 35);
 				const ccid = line.slice(45, 57);
 				const comment = line.slice(58);
-				logDetails[vvll] = [ vvll, user, date, ccid, comment ];
+				logDetails[vvll] = [vvll, user, date, ccid, comment];
 			} else if (line[2] == '+') {
 				break;
 			}
@@ -306,23 +305,23 @@ export class EdoCache {
 		let eles: string[][] = Object.values(index.elem);
 		let filterKey = 2; // default fingerprint filter
 		let filterValue = 'null'; // default if null returns
-		if (!isNullOrUndefined(filter)) {
+		if (filter != null) {
 			const tmpFil = filter.split("=");
 			if (tmpFil[0] == 'lsha1') {
 				filterKey = 0;
 			} else if (tmpFil[0] == 'rsha1') {
 				filterKey = 1;
 			} else if (tmpFil[0] == 'fingerprint') {
-					filterKey = 2;
+				filterKey = 2;
 			} else if (tmpFil[0] == 'logs') {
-					filterKey = 3;
+				filterKey = 3;
 			}
 			filterValue = tmpFil[1];
 		}
 
 		let files: string[] = [];
 		for (const line of eles) {
-			if (!isNullOrUndefined(filter)) {
+			if (filter != null) {
 				if (line[filterKey] == filterValue) {
 					files.push(line[4]);
 				}
@@ -346,7 +345,7 @@ export class EdoCache {
 			|| (obj.length + obj.dataOffset + 1) == obj.data.length) {
 			throw Error("incorrect sha1 checksum... corrupted data!!!");
 		}
-		if (!isNullOrUndefined(type) && obj.type != type) {
+		if (type != null && obj.type != type) {
 			throw Error(`not '${type}' type doesn't match!`);
 		}
 		return obj.data.slice(obj.dataOffset);

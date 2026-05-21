@@ -1,11 +1,9 @@
 #!/usr/bin/env node
 
-import { isNullOrUndefined } from 'util';
 
+let argv: String[] = process.argv;
 
-let argv : String[] = process.argv;
-
-let $0 : String = argv[1];
+let $0: String = argv[1];
 
 // let i : number = 0;
 // argv.forEach(element => {
@@ -17,7 +15,7 @@ for (let i = 0; i < argv.length; i++) {
 	console.log(`${i} -> ${element}`);
 }
 
-if (!isNullOrUndefined(argv[2])) {
+if (argv[2] != null) {
 	if (argv[2] == "init") {
 		// NdvInit.init(argv);
 	} else if (argv[2] == "fetch") {

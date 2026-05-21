@@ -1,5 +1,4 @@
 import read from "read";
-import { isNullOrUndefined } from "util";
 import { EndevorRestApi } from "./EndevorRestApi";
 
 
@@ -57,12 +56,12 @@ export class ConsoleUtils {
 		});
 	}
 
-	public static async promptUserPass(user: string, pass: string): Promise<{user: string, pass: string}> {
+	public static async promptUserPass(user: string, pass: string): Promise<{ user: string, pass: string }> {
 		let ret = {
 			user: user,
 			pass: pass
 		};
-		if (isNullOrUndefined(user)) {
+		if (user == null) {
 			try {
 				ret.user = await ConsoleUtils.promptValue("username: ");
 			} catch (err) {
@@ -70,7 +69,7 @@ export class ConsoleUtils {
 				throw new Error(err);
 			}
 		}
-		if (isNullOrUndefined(pass)) {
+		if (pass == null) {
 			try {
 				ret.pass = await ConsoleUtils.promptPassword("password: ");
 			} catch (err) {
@@ -87,14 +86,14 @@ export class ConsoleUtils {
 			throw new Error("2 times failure, check your password and restart request!");
 		}
 
-		if (isNullOrUndefined(user) || user.length == 0) {
+		if (user == null || user.length == 0) {
 			try {
 				user = await ConsoleUtils.promptValue("username: ");
 			} catch (err) {
 				throw new Error(err);
 			}
 		}
-		if (isNullOrUndefined(pass) || pass.length == 0) {
+		if (pass == null || pass.length == 0) {
 			try {
 				pass = await ConsoleUtils.promptPassword("password: ");
 			} catch (err) {

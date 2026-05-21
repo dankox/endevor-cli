@@ -1,6 +1,5 @@
 import yargs from "yargs";
 import { FileUtils } from "../api/utils/FileUtils";
-import { isNullOrUndefined } from "util";
 import { EdoDiffApi } from "../api/EdoDiffApi";
 import { EdoCache } from "../api/EdoCache";
 import { ConsoleUtils } from "../api/utils/ConsoleUtils";
@@ -10,18 +9,18 @@ import { HashUtils } from "../api/utils/HashUtils";
  * Endevor restore working directory to local or remote (like discard)
  */
 export class EdoStatus {
-	private static readonly edoStatusStage : yargs.PositionalOptions = {
+	private static readonly edoStatusStage: yargs.PositionalOptions = {
 		describe: 'Stage to check status against. Useful if you want to check current work directory status change against different stage.'
 	};
 
-	private static readonly edoStatusIgnoreSpace : yargs.Options = {
+	private static readonly edoStatusIgnoreSpace: yargs.Options = {
 		describe: `Diff will be triggered on changed files to check for trailing space changes. If it's just that, ignore it.`,
 		demand: false,
 		boolean: true,
 		alias: 'is'
 	};
 
-	private static readonly edoStatusPorcelain : yargs.Options = {
+	private static readonly edoStatusPorcelain: yargs.Options = {
 		describe: `Status will be printed in more script readable format.`,
 		demand: false,
 		boolean: true
@@ -42,13 +41,13 @@ export class EdoStatus {
 	public static async process(argv: any) {
 		const tModified: string = "modified:    ";
 		const tConflict: string = "conflict:    ";
-		const tAdded: string    = "added:       ";
-		const tDeleted: string  = "deleted:     ";
+		const tAdded: string = "added:       ";
+		const tDeleted: string = "deleted:     ";
 
 		let ignoreSpace: boolean = false;
 		let porcelain: boolean = false;
-		if (!isNullOrUndefined(argv['ignore-space'])) ignoreSpace = true;
-		if (!isNullOrUndefined(argv.porcelain)) porcelain = true;
+		if (argv['ignore-space'] != null) ignoreSpace = true;
+		if (argv.porcelain != null) porcelain = true;
 
 		const stage: string = await FileUtils.readStage();
 		if (!HashUtils.isSha1(stage)) {
@@ -73,7 +72,7 @@ export class EdoStatus {
 					const addedFIles = diffIdxKeys.filter(item => (diffIdx[item][1] == 'null'));
 					const deletedFIles = diffIdxKeys.filter(item => (diffIdx[item][0] == 'null'));
 					// fingerprints match, but difference in files between remote and local
-					if (addedFIles.length > 0 || deletedFIles.length >0) {
+					if (addedFIles.length > 0 || deletedFIles.length > 0) {
 						console.log(`Your stage has different files than 'remote/${lIndex.stgn}.`);
 						console.log(`Changes in commits between local and remote stage:`);
 						console.log(`  (added or deleted files in local stage are shown)`);

@@ -1,5 +1,4 @@
 import { FileUtils } from "./utils/FileUtils";
-import { isNullOrUndefined } from "util";
 import { EdoCache } from "./EdoCache";
 import { IEdoIndex } from "./doc/IEdoIndex";
 import { CsvUtils } from "./utils/CsvUtils";
@@ -19,8 +18,8 @@ export class EdoCheckoutApi {
 	 */
 	public static async checkout(stage: string) {
 		// verify if valid stage
-		let subMap: {[key: string]: string} = await CsvUtils.getDataFromCSV(FileUtils.subMapFile);
-		if (isNullOrUndefined(subMap[stage])) {
+		let subMap: { [key: string]: string } = await CsvUtils.getDataFromCSV(FileUtils.subMapFile);
+		if (subMap[stage] == null) {
 			throw new Error(`Stage '${stage}' is not found! Verify if you wrote it correctly.`);
 		}
 

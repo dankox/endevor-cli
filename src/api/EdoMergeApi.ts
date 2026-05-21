@@ -1,6 +1,5 @@
 import { FileUtils } from "./utils/FileUtils";
 import { HashUtils } from "./utils/HashUtils";
-import { isNullOrUndefined } from 'util';
 import { MergeUtils, IMergedResult } from './utils/MergeUtils';
 import { EdoCache } from "./EdoCache";
 import { IEdoIndex, EdoIndex } from "./doc/IEdoIndex";
@@ -25,7 +24,7 @@ export class EdoMergeApi {
 		let indexSha1Remote: string | null = null;
 
 		// if sha1, grab stage name from index file (for both remote and local)
-		if (!isNullOrUndefined(remoteStage)) {
+		if (remoteStage != null) {
 			if (HashUtils.isSha1(remoteStage)) {
 				indexRemote = await EdoCache.readIndex(remoteStage);
 				remoteStage = indexRemote.stgn;
@@ -36,7 +35,7 @@ export class EdoMergeApi {
 			stage = indexLocal.stgn;
 		}
 		// use local name if remote not specified
-		if (isNullOrUndefined(remoteStage)) {
+		if (remoteStage == null) {
 			remoteStage = stage;
 		}
 
@@ -147,14 +146,14 @@ export class EdoMergeApi {
 	 * specified, default Edo working directory is used (`FileUtils.edoCwd`)
 	 */
 	public static async mergeStages(local: IEdoIndex, remote: IEdoIndex, files: string[] = [],
-		includeWd: boolean = true, outDirectory?: string): Promise<{[key: string]: string}> {
+		includeWd: boolean = true, outDirectory?: string): Promise<{ [key: string]: string }> {
 
 		// verify local and remote to be specified
-		if (isNullOrUndefined(local) && isNullOrUndefined(remote)) {
+		if (local == null && remote == null) {
 			throw new Error("no index specified!");
 		}
 
-		let mergedFiles: {[key: string]: string} = {};
+		let mergedFiles: { [key: string]: string } = {};
 		let fileList: string[] = [...new Set([...Object.keys(local.elem), ...Object.keys(remote.elem)])];
 
 		// loop thru index files for merge
@@ -165,24 +164,24 @@ export class EdoMergeApi {
 			}
 
 			// If deleted
-			if (isNullOrUndefined(remote.elem[file])) {
+			if (remote.elem[file] == null) {
 				mergedFiles[file] = MergeUtils.STATUS_DELETED;
 				// TODO: should remove in working directory????
 				continue; // skip if remote doesn't have
 			}
 
 			// If added
-			if (isNullOrUndefined(local.elem[file])) {
+			if (local.elem[file] == null) {
 				mergedFiles[file] = MergeUtils.STATUS_MERGED;
 				// clone it in local index (no fingerprint) and go for merge
-				local.elem[file] = [ remote.elem[file][0], remote.elem[file][1], 'null', remote.elem[file][3], file ];
+				local.elem[file] = [remote.elem[file][0], remote.elem[file][1], 'null', remote.elem[file][3], file];
 			}
 
-			let wdFile = (isNullOrUndefined(outDirectory) ? FileUtils.cwdEdo : outDirectory) + file;
+			let wdFile = (outDirectory == null ? FileUtils.cwdEdo : outDirectory) + file;
 			const workExist: boolean = await FileUtils.exists(wdFile);
-			let localSha1  = local.elem[file][0];
-			let baseSha1  = local.elem[file][1];
-			let remoteSha1  = remote.elem[file][0];
+			let localSha1 = local.elem[file][0];
+			let baseSha1 = local.elem[file][1];
+			let remoteSha1 = remote.elem[file][0];
 
 			// If fingerprints match and work file exists
 			if (workExist && local.elem[file][2] == remote.elem[file][2]) {
