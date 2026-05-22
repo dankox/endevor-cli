@@ -42,7 +42,7 @@ export class EdoPush {
 				await FileUtils.writeSettings(config);
 			}
 		} catch (err) {
-			console.error("Error while verifying credentials.\n" + err.message);
+			console.error("Error while verifying credentials.\n" + (err as Error).message);
 			process.exit(1);
 		}
 
@@ -59,7 +59,7 @@ export class EdoPush {
 			await EdoPushApi.push(config, stage, ccid, comment, files);
 		} catch (err) {
 			console.error("Error while running push!");
-			console.error(err.message);
+			console.error((err as Error).message);
 			process.exit(1);
 		}
 	}

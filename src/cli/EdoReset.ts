@@ -72,7 +72,7 @@ export class EdoReset {
 			// await EdoCheckoutApi.checkoutFiles(index, files);
 		} catch (err) {
 			console.error("Error while running discard!");
-			console.error(err.message);
+			console.error((err as Error).message);
 			process.exit(1);
 		}
 	}

@@ -177,7 +177,7 @@ export class EdoDifftool {
 			}
 		} catch (err) {
 			console.error("Error while running diff!");
-			console.error(err.message);
+			console.error((err as Error).message);
 			process.exit(1);
 		}
 	}

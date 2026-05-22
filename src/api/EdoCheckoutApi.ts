@@ -72,7 +72,7 @@ export class EdoCheckoutApi {
 				indexList = await EdoCache.readIndex(indexSha1);
 			} catch (err) {
 				// file doesn't exists or read error, skip updating working tree
-				console.error("index error: " + err.message);
+				console.error("index error: " + (err as Error).message);
 				throw new Error("error occur during reading index...");
 			}
 
@@ -110,7 +110,7 @@ export class EdoCheckoutApi {
 				try {
 					await FileUtils.unlink(FileUtils.cwdEdo + file);
 				} catch (err) {
-					console.error(`Error while discarding local version of '${file}'! ` + err.message);
+					console.error(`Error while discarding local version of '${file}'! ` + (err as Error).message);
 				}
 			}
 		}
@@ -126,7 +126,7 @@ export class EdoCheckoutApi {
 				const buf = await EdoCache.getSha1Object(item[0], EdoCache.OBJ_BLOB);
 				await FileUtils.writeFile(file, buf);
 			} catch (err) {
-				console.error(`Error while checking out local version of '${file}'! ` + err.message);
+				console.error(`Error while checking out local version of '${file}'! ` + (err as Error).message);
 			}
 		}
 	}

@@ -160,7 +160,7 @@ export class EdoPushApi {
 
 			return { fingerprint: fingerprint, file: file };
 		} catch (err) {
-			console.error(`Exception when pushing file '${file}' from stage '${stage}':\n${err.message}`);
+			console.error(`Exception when pushing file '${file}' from stage '${stage}':\n${(err as Error).message}`);
 			return null;
 		}
 	}

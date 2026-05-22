@@ -1,4 +1,4 @@
-import yargs from "yargs";
+import yargs, { Argv } from "yargs";
 import { EdoCache } from "../api/EdoCache";
 import { IEdoIndex } from "../api/doc/IEdoIndex";
 import { FileUtils } from "../api/utils/FileUtils";
@@ -42,7 +42,7 @@ To show content of log, specify object with stage and back reference (remote/STA
 		type: "string"
 	};
 
-	public static edoShowOptions(argv: typeof yargs) {
+	public static edoShowOptions(argv: Argv) {
 		return argv
 			.options('logs', EdoShow.edoShowLogs)
 			.options('blame', EdoShow.edoShowBlame)
@@ -55,11 +55,12 @@ To show content of log, specify object with stage and back reference (remote/STA
 	 *
 	 * @param argv
 	 */
-	public static async process(argv: any) {
+	public static async process(argv: any): Promise<void> {
 		const object: string = argv.object;
 		if (object == null) {
 			console.error("No object specified!");
-			return 1;
+			process.exit(1);
+			return;
 		}
 
 		const logs: boolean = argv.logs != null ? argv.logs : false;
@@ -134,7 +135,7 @@ To show content of log, specify object with stage and back reference (remote/STA
 								logsMissing = false;
 							}
 						} catch (err) {
-							if (err.message.includes("doesn't exist in")) {
+							if ((err as Error).message.includes("doesn't exist in")) {
 								fileNotInRemote = true;
 							}
 							// doesn't exist, don't care
@@ -293,7 +294,7 @@ To show content of log, specify object with stage and back reference (remote/STA
 
 		} catch (err) {
 			console.error("Error while running show!");
-			console.error(err.message);
+			console.error((err as Error).message);
 			process.exit(1);
 		}
 	}

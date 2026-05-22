@@ -6,12 +6,12 @@ import { EdoCommitApi } from '../api/EdoCommitApi';
  * Edo commit changes in working directory to local stage
  */
 export class EdoCommit {
-	private static readonly edoCommitFile : yargs.PositionalOptions = {
+	private static readonly edoCommitFile: yargs.PositionalOptions = {
 		describe: 'File names which you want to commit to local stage',
 		type: "string"
 	};
 
-	private static readonly edoCommitAll : yargs.Options = {
+	private static readonly edoCommitAll: yargs.Options = {
 		describe: 'Commit untracked changes, like newly added files or deleted files',
 		boolean: true,
 		demand: false,
@@ -36,7 +36,7 @@ export class EdoCommit {
 			await EdoCommitApi.commit(stage, files, all);
 		} catch (err) {
 			console.error("Error while running commit!");
-			console.error(err.message);
+			console.error((err as Error).message);
 			process.exit(1);
 		}
 	}

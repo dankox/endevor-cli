@@ -1,4 +1,4 @@
-import read from "read";
+import { read } from "read";
 import { EndevorRestApi } from "./EndevorRestApi";
 
 
@@ -27,33 +27,11 @@ export class ConsoleUtils {
 	public static readonly cReset: string = "\x1b[0m";
 
 	public static promptValue(prompt: string, defaultValue?: string): Promise<string> {
-		let options = {
-			prompt: prompt,
-			default: defaultValue
-		};
-		return new Promise<string>((resolve, reject) => {
-			read(options, (err, result) => {
-				if (err) {
-					return reject(err);
-				}
-				resolve(result);
-			});
-		});
+		return read({ prompt: prompt, default: defaultValue }) as Promise<string>;
 	}
 
 	public static promptPassword(prompt: string): Promise<string> {
-		let options = {
-			prompt: prompt,
-			silent: true
-		};
-		return new Promise<string>((resolve, reject) => {
-			read(options, (err, result) => {
-				if (err) {
-					return reject(err);
-				}
-				resolve(result);
-			});
-		});
+		return read({ prompt: prompt, silent: true }) as Promise<string>;
 	}
 
 	public static async promptUserPass(user: string, pass: string): Promise<{ user: string, pass: string }> {
@@ -65,16 +43,14 @@ export class ConsoleUtils {
 			try {
 				ret.user = await ConsoleUtils.promptValue("username: ");
 			} catch (err) {
-				// console.error("Error while prompting for user name: " + err);
-				throw new Error(err);
+				throw err instanceof Error ? err : new Error(String(err));
 			}
 		}
 		if (pass == null) {
 			try {
 				ret.pass = await ConsoleUtils.promptPassword("password: ");
 			} catch (err) {
-				// console.error("Error while prompting for password: " + err);
-				throw new Error(err);
+				throw err instanceof Error ? err : new Error(String(err));
 			}
 		}
 		return ret;
@@ -90,14 +66,14 @@ export class ConsoleUtils {
 			try {
 				user = await ConsoleUtils.promptValue("username: ");
 			} catch (err) {
-				throw new Error(err);
+				throw err instanceof Error ? err : new Error(String(err));
 			}
 		}
 		if (pass == null || pass.length == 0) {
 			try {
 				pass = await ConsoleUtils.promptPassword("password: ");
 			} catch (err) {
-				throw new Error(err);
+				throw err instanceof Error ? err : new Error(String(err));
 			}
 		}
 

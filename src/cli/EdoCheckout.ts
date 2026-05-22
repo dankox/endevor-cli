@@ -6,7 +6,7 @@ import { EdoCheckoutApi } from "../api/EdoCheckoutApi";
  * Endevor checkout stage (on local)
  */
 export class EdoCheckout {
-	private static readonly edoCheckoutStage : yargs.PositionalOptions = {
+	private static readonly edoCheckoutStage: yargs.PositionalOptions = {
 		describe: 'Name of stage to checkout (env-stg-sys-sub)'
 	};
 
@@ -43,7 +43,7 @@ export class EdoCheckout {
 			await EdoCheckoutApi.checkout(stage);
 		} catch (err) {
 			console.error("Error while running checkout!");
-			console.error(err.message);
+			console.error((err as Error).message);
 			process.exit(1);
 		}
 	}

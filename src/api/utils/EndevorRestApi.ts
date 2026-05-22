@@ -139,7 +139,7 @@ export class EndevorRestApi {
 		}
 		const tUrl = nodeurl.parse(url);
 		let client: typeof http | typeof https = http;
-		if (!headers['accept-encoding']) {
+		if (!(headers as Record<string, unknown>)['accept-encoding']) {
 			headers = {
 				"accept-encoding": 'gzip,deflate',
 				...headers

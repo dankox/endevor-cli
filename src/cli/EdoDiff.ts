@@ -8,29 +8,29 @@ import { HashUtils } from "../api/utils/HashUtils";
  * Edo diff files in working directory with checked out stage
  */
 export class EdoDiff {
-	private static readonly edoDiffStage : yargs.PositionalOptions = {
+	private static readonly edoDiffStage: yargs.PositionalOptions = {
 		describe: 'Name or sha1 id of stage for diff',
 		type: "string"
 	};
 
-	private static readonly edoDiffFiles : yargs.PositionalOptions = {
+	private static readonly edoDiffFiles: yargs.PositionalOptions = {
 		describe: 'File names which you want to diff with local/remote stage'
 	};
 
-	private static readonly edoNameOnly : yargs.Options = {
+	private static readonly edoNameOnly: yargs.Options = {
 		describe: 'Show only names of changed files.',
 		demand: false,
 		boolean: true
 	};
 
-	private static readonly edoIgnoreSpace : yargs.Options = {
+	private static readonly edoIgnoreSpace: yargs.Options = {
 		describe: 'Ignore white space (leading and trailing blank) changes.',
 		demand: false,
 		alias: 'is',
 		boolean: true
 	};
 
-	private static readonly edoDiffRemoteBase : yargs.Options = {
+	private static readonly edoDiffRemoteBase: yargs.Options = {
 		describe: 'Diff files with base changes on specified stage (old stage or current stage).',
 		demand: false,
 		boolean: true,
@@ -93,13 +93,13 @@ export class EdoDiff {
 		let ignoreSpace: boolean = argv["ignore-space"] != null ? argv["ignore-space"] : false;
 
 		try {
-			let changes: {[key: string]: string[]};
+			let changes: { [key: string]: string[] };
 			// get changes between working directory and stage
 			if (stageNew == '') {
 				let stage: string = (stageOld.match(/^(remote\/)*STAGE/) ? stageOld.replace('STAGE', (await FileUtils.readStage(true))) : stageOld);
 				changes = await EdoDiffApi.getFileDiff(stage, base);
 
-			// get changes between two stages
+				// get changes between two stages
 			} else {
 				stageOld = (stageOld.match(/^(remote\/)*STAGE/) ? stageOld.replace('STAGE', (await FileUtils.readStage(true))) : stageOld);
 				stageNew = (stageNew.match(/^(remote\/)*STAGE/) ? stageNew.replace('STAGE', (await FileUtils.readStage(true))) : stageNew);
@@ -169,7 +169,7 @@ export class EdoDiff {
 			}
 		} catch (err) {
 			console.error("Error while running diff!");
-			console.error(err.message);
+			console.error((err as Error).message);
 			process.exit(1);
 		}
 	}

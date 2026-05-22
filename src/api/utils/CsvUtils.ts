@@ -1,6 +1,5 @@
 import * as fs from 'fs';
 import * as readline from 'readline';
-import { isNull } from 'util';
 import { FileUtils } from './FileUtils';
 import { HashUtils } from './HashUtils';
 import { EdoCache } from '../EdoCache';
@@ -53,8 +52,8 @@ export class CsvUtils {
 	public static async writeStageMap(map: any): Promise<void> {
 		let output: string = "";
 		map.forEach((stage: { envName: any; stgNum: any; nextEnv: any; nextStgNum: any; entryStg: any; }) => {
-			if (isNull(stage.nextEnv)) stage.nextEnv = "0";
-			if (isNull(stage.nextStgNum)) stage.nextStgNum = "0";
+			if (stage.nextEnv === null) stage.nextEnv = "0";
+			if (stage.nextStgNum === null) stage.nextStgNum = "0";
 			if (stage.entryStg)
 				stage.entryStg = "1";
 			else

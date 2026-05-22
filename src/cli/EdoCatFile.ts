@@ -1,16 +1,16 @@
-import yargs from "yargs";
+import yargs, { Argv } from "yargs";
 import { EdoCache } from "../api/EdoCache";
 
 /**
  * Endevor fetch remote stage to local
  */
 export class EdoCatFile {
-	private static readonly edoCatFile : yargs.PositionalOptions = {
+	private static readonly edoCatFile: yargs.PositionalOptions = {
 		describe: 'sha1 of file cat',
 		type: "string"
 	};
 
-	public static edoCatOptions(argv: typeof yargs) {
+	public static edoCatOptions(argv: Argv) {
 		return argv
 			.positional('file', EdoCatFile.edoCatFile);
 	}
@@ -20,17 +20,17 @@ export class EdoCatFile {
 	 *
 	 * @param argv
 	 */
-	public static async process(argv: any) {
+	public static async process(argv: any): Promise<void> {
 		try {
 			if (argv.file) {
 				const out: Buffer = await EdoCache.getSha1Object(argv.file);
 				process.stdout.write(out);
 			} else {
-				return 1;
+				process.exit(1);
 			}
 		} catch (err) {
 			console.error("Error while running cat-file!");
-			console.error(err.message);
+			console.error((err as Error).message);
 			process.exit(1);
 		}
 	}

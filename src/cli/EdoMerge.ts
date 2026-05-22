@@ -7,12 +7,12 @@ import { HashUtils } from '../api/utils/HashUtils';
  * Edo merge remote stage to local stage
  */
 export class EdoMerge {
-	private static readonly edoMergeFile : yargs.PositionalOptions = {
+	private static readonly edoMergeFile: yargs.PositionalOptions = {
 		describe: 'Name of file|files (type/element) to merge',
 		type: "string"
 	};
 
-	private static readonly edoMergeStage : yargs.PositionalOptions = {
+	private static readonly edoMergeStage: yargs.PositionalOptions = {
 		describe: 'Name or sha1 id of stage which should be merge to working directory',
 		type: "string"
 	};
@@ -34,7 +34,7 @@ export class EdoMerge {
 				if (!HashUtils.isSha1(argv.stage)) {
 					if (!argv.stage.startsWith('.map') && !argv.stage.match(/.+-.+-.+-.+/)) {
 						if (!argv.files || argv.files.legnth == 0) {
-							argv.files = [ argv.stage ];
+							argv.files = [argv.stage];
 						} else {
 							argv.files.unshift(argv.stage);
 						}
@@ -51,7 +51,7 @@ export class EdoMerge {
 			await EdoMergeApi.merge(stage, remoteStage, files);
 		} catch (err) {
 			console.error("Error while running merge!");
-			console.error(err.message);
+			console.error((err as Error).message);
 			process.exit(1);
 		}
 	}

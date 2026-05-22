@@ -1,9 +1,9 @@
-import * as diff from "diff";
+import { diff3Merge } from "node-diff3";
 // import { IMerge3way } from "../doc/IMerge3way";
-import { FileUtils } from "./FileUtils";
-import { IEdoIndex } from "../doc/IEdoIndex";
-import { EdoCache } from "../EdoCache";
-import { HashUtils } from "./HashUtils";
+// import { FileUtils } from "./FileUtils";
+// import { IEdoIndex } from "../doc/IEdoIndex";
+// import { EdoCache } from "../EdoCache";
+// import { HashUtils } from "./HashUtils";
 
 /**
  * Interface for arguments to 3-way merge function
@@ -84,7 +84,6 @@ export class MergeUtils {
 		let base = argv.base;
 		let mine = argv.mine;
 		let theirs = argv.theirs;
-		// trim trailling space if required
 		if (trimTrailingSpace) {
 			base = MergeUtils.trimTrailSpace(base);
 			mine = MergeUtils.trimTrailSpace(mine);
@@ -96,133 +95,28 @@ export class MergeUtils {
 		let theirsName = "REMOTE";
 		if (argv.theirsName) theirsName = argv.theirsName;
 
-		// run 3 way merge
-		let parse = diff.merge(mine, theirs, base);
-		let baseArr: string[] = base.split('\n');
-		let baseIdx: number = 1;
+		const mineLines = mine.split('\n');
+		const baseLines = base.split('\n');
+		const theirsLines = theirs.split('\n');
+
+		const regions = diff3Merge(mineLines, baseLines, theirsLines);
 
 		let output: string[] = [];
-		let conflicta: string[] = [];
-		let conflictb: string[] = [];
-		// let conflictbase: string[] = []; // this doesn't currently work well...
-		let conflict: boolean = false;
 		let finalConflict: boolean = false;
-		let enda: boolean = false;
-		let endb: boolean = false;
 
-		// go thru each hunk and check for conflicts (hunk.conflict)
-		parse.hunks.forEach((hunk: any) => {
-			conflict = false;
-			// handle beginnig of the hunk
-			if (hunk.oldStart != null) {
-				// copy lines infront of the hunk if required
-				if (hunk.oldStart > baseIdx) {
-					for (let i = baseIdx; i < hunk.oldStart; i++) {
-						output.push(baseArr[i - 1]);
-					}
-				}
-				// move base index
-				if (hunk.oldLines != null) {
-					baseIdx = hunk.oldStart + hunk.oldLines;
-				}
-			}
-			hunk.lines.forEach((line: any) => {
-				// line without conflict
-				if (typeof line == 'string')  {
-					// if mine and theirs didn't end yet
-					if (!enda && !endb) {
-						// if conflict, create git-like merge output
-						if (conflict) {
-							conflict = false;
-							output.push("<<<<<<< " + mineName);
-							output.push(...conflicta);
-							// output.push("|||||||");
-							// output.push(...conflictbase);
-							output.push("=======");
-							output.push(...conflictb);
-							output.push(">>>>>>> " + theirsName);
-							conflicta = [];
-							conflictb = [];
-							// conflictbase = [];
-						}
-						if (line[0] != '-' && line[0] != '\\') {
-							output.push(line.slice(1)); // push to output '+' and ' '
-						}
-					} else if (enda) { // if mine ends push to theirs lines
-						if (line[0] != '-' && line[0] != '\\') { // only '+' and ' '
-							conflictb.push(line.slice(1));
-						}
-					} else if (endb) { // if theirs ends push to mine lines
-						if (line[0] != '-' && line[0] != '\\') { // only '+' and ' '
-							conflicta.push(line.slice(1));
-						}
-					}
-				} else { // handle line with conflicts
-					if (line.conflict) {
-						conflict = true;
-						finalConflict = true;
-						line.mine.forEach((la: string) => {
-							if (la[0] != '-' && la[0] != '\\') {
-								conflicta.push(la.slice(1)); // push to mine conflicts '+' or ' '
-							// } else if (la[0] == '-') {
-							// 	conflictbase.push(la.slice(1));
-							} else if (la[0] == '\\') {
-								enda = true; // set end of mine input for
-							}
-
-						});
-						line.theirs.forEach((lb: string) => {
-							if (lb[0] != '-' && lb[0] != '\\') {
-								conflictb.push(lb.slice(1)); // push to theirs conflicts '+' or ' '
-							// } else if (lb[0] == '-') {
-							// 	if (conflictbase.indexOf(lb.slice(1)) == -1) {
-							// 		conflictbase.push(lb.slice(1));
-							// 	}
-							} else if (lb[0] == '\\') {
-								endb = true; // set end of theirs input for
-							}
-						});
-					} else {
-						// This shouldn't happened (it's either string or conflict object)
-						console.error("No conflict??? Shouldn't happened... uncaught stuff: " + line.toString());
-					}
-				}
-			});
-			// resolve final conflict if there is still some
-			if (conflict) {
-				// walk from back conflicting arrays and check if they have common lines
-				let nonconflict: string[] = [];
-				let minlen = Math.min(conflicta.length, conflictb.length);
-				let idxa = conflicta.length - 1;
-				let idxb = conflictb.length - 1;
-				for (let i = 0; i < minlen; i++) {
-					idxa -= i;
-					idxb -= i;
-					// for common lines, push to non-conflicting array
-					if (conflicta[idxa] == conflictb[idxb]) {
-						nonconflict.push(conflicta[idxa]);
-					} else {
-						break;
-					}
-				}
+		for (const region of regions) {
+			if (region.ok) {
+				output.push(...region.ok);
+			} else if (region.conflict) {
+				finalConflict = true;
 				output.push("<<<<<<< " + mineName);
-				output.push(...conflicta.slice(0, idxa + 1)); // push in only conflicting
-				// output.push("|||||||");
-				// output.push(...conflictbase);
+				output.push(...region.conflict.a);
 				output.push("=======");
-				output.push(...conflictb.slice(0, idxb + 1)); // push in only conflicting
+				output.push(...region.conflict.b);
 				output.push(">>>>>>> " + theirsName);
-				if (nonconflict.length > 0) // push non-conflicting at the end
-					output.push(...nonconflict.reverse());
-			}
-		});
-
-		// handle remaining of the file (if hunk doesn't cover it)
-		if (baseIdx <= baseArr.length) {
-			for (let i = baseIdx; i <= baseArr.length; i++) {
-				output.push(baseArr[i - 1]);
 			}
 		}
+
 		if (finalConflict) {
 			output.unshift(MergeUtils.STATUS_CONFLICT);
 		} else {

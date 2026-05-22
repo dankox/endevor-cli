@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as gfs from 'graceful-fs';
-import mkdirp from 'mkdirp';
-import rimraf from 'rimraf';
+import { mkdirp } from 'mkdirp';
+import { rimraf } from 'rimraf';
 import path from 'path';
 import os from 'os';
 import { ISettings } from '../doc/ISettings';
@@ -212,7 +212,7 @@ export class FileUtils {
 			if (dataStart < 4) reject(`data compromised, '${sha1}' doesn't look like edo object!`);
 
 			let prefix: string = data.slice(0, dataStart).toString();
-			let type: string = prefix.substr(0,4);
+			let type: string = prefix.substr(0, 4);
 			let length: number = parseInt(prefix.substr(5), 10);
 			// data = data.slice(dataStart + 1);
 			let result: IObject = {
@@ -266,9 +266,7 @@ export class FileUtils {
 	}
 
 	public static mkdir(path: string): Promise<void> {
-		return new Promise<void>((resolve, reject) => {
-			mkdirp(path, error => FileUtils.handleResult(resolve, reject, error, void 0));
-		});
+		return mkdirp(path).then(() => undefined);
 	}
 
 	public static exists(path: string): Promise<boolean> {
@@ -277,22 +275,20 @@ export class FileUtils {
 		});
 	}
 
-	public static unlink(path: string): Promise<boolean> {
-		return new Promise<boolean>((resolve, reject) => {
-			fs.unlink(path, error => FileUtils.handleResult(resolve, reject, error, void 0));
+	public static unlink(path: string): Promise<void> {
+		return new Promise<void>((resolve, reject) => {
+			fs.unlink(path, error => FileUtils.handleResult(resolve, reject, error, undefined));
 		});
 	}
 
-	public static rmdir(path: string): Promise<boolean> {
-		return new Promise<boolean>((resolve, reject) => {
-			fs.rmdir(path, error => FileUtils.handleResult(resolve, reject, error, void 0));
+	public static rmdir(path: string): Promise<void> {
+		return new Promise<void>((resolve, reject) => {
+			fs.rmdir(path, error => FileUtils.handleResult(resolve, reject, error, undefined));
 		});
 	}
 
 	public static rmrf(path: string): Promise<void> {
-		return new Promise<void>((resolve, reject) => {
-			rimraf(path, error => FileUtils.handleResult(resolve, reject, error, void 0));
-		});
+		return rimraf(path).then(() => undefined);
 	}
 
 	public static async copyFile(src: string, dest: string): Promise<void> {
@@ -347,7 +343,8 @@ export class FileUtils {
 			if (trimTrailSpace) {
 				fs.readFile(path, (error, buffer) => {
 					if (error) {
-						return FileUtils.handleResult(resolve, reject, error, void 0);
+						reject(FileUtils.messageError(error));
+						return;
 					}
 					let lines: string[] = buffer.toString().split('\n');
 					let output: string[] = [];
